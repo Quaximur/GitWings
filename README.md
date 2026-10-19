@@ -1,102 +1,215 @@
+<div align="center">
+
+**English** · [Русский](README.ru.md)
+
 # 🪽 GitWings
 
-Анимированные SVG-крылья, которые описывают навыки разработчика.
-GitWings анализирует **все репозитории пользователя**: языки, фреймворки, коммиты и звёзды. Готовые крылья вешаются на главную страницу GitHub-аккаунта.
-Отдельная фича — крылья для **одного репозитория**.
+**Animated SVG wings that describe a developer's skills.**
 
-<p align="center"><img src="examples/profile-neuecc.svg" width="100%"/></p>
-<p align="center"><img src="examples/huggingface_transformers.svg" width="100%"/></p>
-<p align="center"><img src="examples/tokio-rs_axum.svg" width="49%"/> <img src="examples/tiny.svg" width="49%"/></p>
+GitWings reads **all of a user's repositories** (languages, frameworks, commits, stars)<br/>
+and grows a pair of wings you can pin to your GitHub profile page.<br/>
+It can also draw wings for a **single repository**.
 
-Есть три способа использования:
+[![Node](https://img.shields.io/badge/node-%E2%89%A518-5fa04e?logo=nodedotjs&logoColor=white)](package.json)
+[![TypeScript](https://img.shields.io/badge/TypeScript-3178c6?logo=typescript&logoColor=white)](tsconfig.json)
+[![MCP](https://img.shields.io/badge/MCP-server-8a63d2?logo=anthropic&logoColor=white)](#-mcp-server-for-ai)
+[![GitHub Action](https://img.shields.io/badge/GitHub-Action-2088ff?logo=githubactions&logoColor=white)](action.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-f5c542)](package.json)
 
-| Режим | Для чего |
-|---|---|
-| **CLI** `gitwings` | вручную, локально |
-| **MCP-сервер** `gitwings-mcp` | для AI-ассистентов: Claude Code, Claude Desktop, Cursor… |
-| **GitHub Action** | ежедневное автообновление крыльев в профиле |
+</div>
 
-## Профиль: навыки по всем репозиториям
+<p align="center"><img src="examples/profile-neuecc.svg" width="100%" alt="Profile wings for neuecc"/></p>
+<p align="center"><img src="examples/huggingface_transformers.svg" width="100%" alt="Repository wings for huggingface/transformers"/></p>
+<p align="center">
+  <img src="examples/tokio-rs_axum.svg" width="49%" alt="Repository wings for tokio-rs/axum"/>
+  <img src="examples/tiny.svg" width="49%" alt="Wings for a tiny project"/>
+</p>
 
-Если передать логин, анализируются все собственные репозитории (форки и пустые пропускаются):
+<details>
+<summary><b>📑 Contents</b></summary>
 
-- **Языки = навыки.** Каждый репозиторий даёт вклад *доля языка в репо × вес репо*, где вес = `1 + log2(1 + ваши коммиты в репо)`. Значит, важен объём вашей работы, а не размер кода: один огромный проект с вендорным кодом не перекрывает остальные.
-- **Фреймворки** ранжируются по числу репозиториев, где они используются. Эмблемы показывают самые частые, а подсказка сообщает, например, «React · 7 repos».
-- **Вклад** — все контрибуции за всё время, как на графике в профиле: сумма `contributionCalendar` по всем годам из `contributionYears`. Туда входят коммиты в любых репозиториях, PR, issues, ревью и приватные контрибуции, если они показаны в профиле. Нужен токен (GraphQL); без него используются коммиты.
-- **Коммиты** — ваши коммиты (author = вы) во всех проанализированных репозиториях. Они задают вес репозитория для языков.
-- **Звёзды** суммируются по вашим репозиториям.
-- Флаги: `--include-forks`, `--include-private` (нужен токен этого пользователя со scope `repo`; на картинку попадают только агрегированные языки и технологии, названия репозиториев не выводятся), `--max-repos N`.
+- [Three ways to use it](#-three-ways-to-use-it)
+- [Quick start](#-quick-start)
+- [Profile: skills across all repositories](#-profile-skills-across-all-repositories)
+- [How data becomes wings](#-how-data-becomes-wings)
+  - [Star tiers](#star-tiers)
+  - [Traits](#traits)
+  - [Icons and links](#icons-and-links)
+- [CLI](#-cli)
+- [MCP server (for AI)](#-mcp-server-for-ai)
+- [Wings on your profile page](#-wings-on-your-profile-page)
+- [FAQ](#-faq)
+- [Development](#-development)
 
-На каждый репозиторий уходит ~3 запроса к API. Без токена анализируются только 15 последних репозиториев, с `GITHUB_TOKEN` — все.
+</details>
 
-## Как данные превращаются в крылья
+## 🧭 Three ways to use it
 
-| Данные | Что меняется |
-|---|---|
-| **Вклад** (профиль) / **коммиты** (репозиторий) | количество перьев (7→19) и слоёв: маховые → вторичные (≥30) → кроющие (≥300) → чешуя-пух (≥2000) |
-| **Звёзды** | размах крыльев, свечение, искры и **тир**, определяющий металл кости, гало и оправ эмблем: Fledgling (<10) · Rising (10+) · Soaring (100+) · Celestial (1k+, появляется гало) · Mythic (10k+) · Seraphic (50k+) |
-| **Языки** | цвета перьев: секторы от кончика к телу по доле кода, linguist-цвета; «сердце» в центре — кольцевая диаграмма языков |
-| **Семейство основного языка** | форма перьев: мягкие (по умолчанию), **клинки** (Rust, C/C++, Go, Zig), **струящиеся** (Haskell, Elixir, Scala, F#…) |
-| **Фреймворки и библиотеки** | визуальные черты, см. таблицу ниже |
+| | Mode | What for |
+|:-:|---|---|
+| 💻 | **CLI** `gitwings` | by hand, locally |
+| 🤖 | **MCP server** `gitwings-mcp` | for AI assistants: Claude Code, Claude Desktop, Cursor… |
+| ⚙️ | **GitHub Action** | refreshes the wings on your profile every day |
 
-| Черта | Стек | Эффект |
-|---|---|---|
-| `aurora` | React, Vue, Angular, Svelte, Next, Tailwind, Blazor, RxJS/R3… | орбиты света с бегущими огоньками |
-| `runes` | Express, Nest, Django, FastAPI, Spring, ASP.NET, gRPC, Axum… | светящиеся руны вдоль кости крыла |
-| `neural` | PyTorch, TensorFlow, Transformers, LangChain, Claude API, MCP… | нейросеть, вплетённая в перья |
-| `pixel` | Unity, Godot, Unreal, Bevy, Three.js, шейдеры… | мерцающие пиксели |
-| `ember` | Rust, C, C++, Zig, Go | поднимающиеся угли |
-| `prism` | Flutter, React Native, Swift, Kotlin, MAUI | радужная кромка маховых перьев |
-| `hex` | Docker, Kubernetes, Terraform, GitHub Actions, Nix | гексагональные пластины-доспех |
-| `constellation` | pandas, NumPy, Spark, Jupyter, PostgreSQL… | созвездие за крыльями |
-| `crystal` | Ethers, Hardhat, Solana, Solidity | парящие кристаллы |
-
-Фреймворки определяются по манифестам: `package.json`, `*.csproj`, `Cargo.toml`, `go.mod`, `pyproject.toml`, `requirements.txt`, `Gemfile`, `composer.json`, `pubspec.yaml`, `pom.xml`, `build.gradle`, `mix.exs`, Unity `Packages/manifest.json`. Учитываются и маркерные файлы: `Dockerfile`, `project.godot`, `ProjectSettings/`, `*.tf` и другие. Реестр находится в [src/tech.ts](src/tech.ts), новая технология добавляется одной строкой.
-
-### Иконки и ссылки
-
-На крыльях размещены эмблемы-медальоны с иконками ([simple-icons](https://simpleicons.org), CC0). На правом крыле — языки, на левом — фреймворки. У каждой эмблемы есть всплывающая подсказка и ссылка на сайт технологии; под крыльями — легенда, тоже со ссылками.
-
-> ⚠️ В README GitHub показывает SVG через `<img>`, поэтому ссылки *внутри* картинки там не кликаются. Работают они, когда SVG открыт напрямую (по клику на картинку). Поэтому флаг `--snippet` дополнительно генерирует под картинкой HTML-строку с настоящими ссылками на каждую технологию.
-
-### Почему SVG, а не шейдеры + GIF
-
-GIF ограничен 256 цветами, поэтому градиенты и свечение в нём пойдут полосами. Весит он 2–10 МБ против ~50 КБ у SVG. Кроме того, для рендера нужен headless-браузер с WebGL в CI, где нет GPU. SVG чёткий на любом экране, а анимацию проигрывает браузер зрителя. Для пользователей с `prefers-reduced-motion` анимация отключается.
-
-## Установка
+## 🚀 Quick start
 
 ```bash
-git clone https://github.com/YOUR_NAME/GitWings && cd GitWings
+git clone https://github.com/Quaximur/GitWings && cd GitWings
 npm install && npm run build
+node dist/cli.js YOUR_LOGIN -o wings.svg
 ```
 
-Без токена GitHub API даёт 60 запросов в час. Для профилей лучше задать `GITHUB_TOKEN` (подойдёт classic-токен без прав или fine-grained с доступом read-only).
+> [!TIP]
+> Without a token the GitHub API allows 60 requests per hour. For profiles, set `GITHUB_TOKEN`: a classic token with no scopes or a fine-grained read-only token is enough.
 
-## CLI
+## 👤 Profile: skills across all repositories
+
+Pass a login and GitWings analyses every repository the user owns (forks and empty repositories are skipped):
+
+```mermaid
+flowchart LR
+    U(["👤 login"]) --> R["📦 own repositories"]
+    R --> L["🎨 languages<br/>share × repo weight"]
+    R --> T["🧩 frameworks<br/>ranked by repo count"]
+    R --> C["🔨 your commits"]
+    R --> S["⭐ stars"]
+    U --> A["📈 all-time<br/>contributions"]
+    L & T & C & S & A --> W{{"🪽 wings.svg"}}
+```
+
+- **Languages are skills.** Each repository contributes *language share in the repo × repo weight*, where weight = `1 + log2(1 + your commits in the repo)`. What counts is how much *you* worked on it, not how big the code is, so one huge project full of vendored code can't drown out the rest.
+- **Frameworks** are ranked by the number of repositories that use them. Badges show the most frequent ones and the tooltip says, for example, “React · 7 repos”.
+- **Contributions** are all-time contributions, the same as the graph on your profile: the sum of `contributionCalendar` over every year in `contributionYears`. That includes commits to any repository, PRs, issues, reviews and private contributions if your profile shows them. Requires a token (GraphQL); without one, commits are used instead.
+- **Commits** are your commits (author = you) across all analysed repositories. They set each repository's weight for languages.
+- **Stars** are summed across your repositories.
+
+| Flag | Effect |
+|---|---|
+| `--include-forks` | also analyse forks |
+| `--include-private` | also analyse private repositories (needs that user's token with the `repo` scope) |
+| `--max-repos N` | analyse at most `N` most recently pushed repositories |
+
+> [!NOTE]
+> With `--include-private` only aggregated languages and technologies reach the image. Repository names are never printed.
+
+> [!IMPORTANT]
+> Each repository costs about 3 API requests. Without a token only the 15 most recent repositories are analysed; with `GITHUB_TOKEN`, all of them.
+
+## 🎨 How data becomes wings
+
+| Data | What changes |
+|---|---|
+| **Contributions** (profile) / **commits** (repository) | number of feathers (7 → 19) and layers: primaries → secondaries (≥30) → coverts (≥300) → down scales (≥2000) |
+| **Stars** | wingspan, glow, sparkles and the [**tier**](#star-tiers) |
+| **Languages** | feather colours: tip-to-body sectors by share of code, linguist colours; the “heart” in the centre is a donut chart of languages |
+| **Primary language family** | feather shape: soft (default), **blades** (Rust, C/C++, Go, Zig), **flowing** (Haskell, Elixir, Scala, F#…) |
+| **Frameworks and libraries** | visual [traits](#traits) |
+
+### Star tiers
+
+The tier sets the metal of the wing bone, the halo and the badge rims.
+
+| Tier | Stars | Metal |
+|---|--:|---|
+| 🪶 **Fledgling** | < 10 | ![](https://img.shields.io/badge/-%239aa4b2-9aa4b2) slate |
+| 🥉 **Rising** | 10+ | ![](https://img.shields.io/badge/-%23cd8a4a-cd8a4a) bronze |
+| 🥈 **Soaring** | 100+ | ![](https://img.shields.io/badge/-%23c0c8d4-c0c8d4) silver |
+| 🥇 **Celestial** | 1k+ | ![](https://img.shields.io/badge/-%23f5c542-f5c542) gold, **halo appears** |
+| 🔮 **Mythic** | 10k+ | ![](https://img.shields.io/badge/-%23b388ff-b388ff) amethyst |
+| 💠 **Seraphic** | 50k+ | ![](https://img.shields.io/badge/-%235ee7ff-5ee7ff) celestial cyan |
+
+### Traits
+
+| Trait | Stack | Effect |
+|---|---|---|
+| `aurora` | React, Vue, Angular, Svelte, Next, Tailwind, Blazor, RxJS/R3… | orbits of light with running sparks |
+| `runes` | Express, Nest, Django, FastAPI, Spring, ASP.NET, gRPC, Axum… | glowing runes along the wing bone |
+| `neural` | PyTorch, TensorFlow, Transformers, LangChain, Claude API, MCP… | a neural network woven into the feathers |
+| `pixel` | Unity, Godot, Unreal, Bevy, Three.js, shaders… | twinkling pixels |
+| `ember` | Rust, C, C++, Zig, Go | rising embers |
+| `prism` | Flutter, React Native, Swift, Kotlin, MAUI | rainbow edge on the primaries |
+| `hex` | Docker, Kubernetes, Terraform, GitHub Actions, Nix | hexagonal armour plates |
+| `constellation` | pandas, NumPy, Spark, Jupyter, PostgreSQL… | a constellation behind the wings |
+| `crystal` | Ethers, Hardhat, Solana, Solidity | floating crystals |
+
+<details>
+<summary><b>🔎 How frameworks are detected</b></summary>
+
+<br/>
+
+From manifests:
+
+`package.json` · `*.csproj` · `Cargo.toml` · `go.mod` · `pyproject.toml` · `requirements.txt` · `Gemfile` · `composer.json` · `pubspec.yaml` · `pom.xml` · `build.gradle` · `mix.exs` · Unity `Packages/manifest.json`
+
+And from marker files: `Dockerfile`, `project.godot`, `ProjectSettings/`, `*.tf` and others.
+
+The registry lives in [src/tech.ts](src/tech.ts); adding a technology takes one line.
+
+</details>
+
+### Icons and links
+
+The wings carry medallion badges with icons ([simple-icons](https://simpleicons.org), CC0): languages on the right wing, frameworks on the left. Every badge has a tooltip and a link to the technology's site, and the legend under the wings links out too.
+
+> [!WARNING]
+> GitHub renders README SVGs through `<img>`, so links *inside* the picture aren't clickable there. They work when the SVG is opened directly (click the image). That's why `--snippet` also prints an HTML line with real links to each technology to put under the picture.
+
+## 💻 CLI
 
 ```bash
+# profile wings, light + dark variants
 node dist/cli.js YOUR_LOGIN -o wings.svg --theme light --dark-output wings-dark.svg
 ```
 
 ```bash
+# a single repository
 node dist/cli.js facebook/react -o repo-wings.svg
 ```
 
 ```bash
+# offline, from saved stats
 node dist/cli.js --stats examples/tiny.json -o tiny.svg --background
 ```
 
-Флаги: `--theme auto|dark|light`, `--background`, `--no-label`, `--no-animate`, `--title`, `--json stats.json`, `--snippet <url> [--snippet-dark <url>]`, `-q` (без прогресса) и профильные флаги, описанные выше.
+<details>
+<summary><b>⚙️ All flags</b></summary>
 
-## MCP-сервер (для AI)
+<br/>
 
-Claude Code:
+| Flag | Description |
+|---|---|
+| `-o, --output <file>` | write the SVG here (default: stdout) |
+| `--theme <t>` | `auto` \| `dark` \| `light` (default: `auto`) |
+| `--dark-output <file>` | also write a dark-theme variant (use with `--theme light`) |
+| `--background` | draw a card background |
+| `--no-label` | wings only, no title, stats or legend |
+| `--no-animate` | static SVG |
+| `--title <text>` | custom title |
+| `--stats <file>` | render from a stats JSON instead of the API (offline) |
+| `--json <file>` | also save the collected stats as JSON |
+| `--snippet <url>` | print a README snippet that embeds the image from `<url>` |
+| `--snippet-dark <url>` | dark variant URL for the snippet (`<picture>`, follows the GitHub theme) |
+| `--include-forks` | also analyse forks |
+| `--include-private` | also analyse private repositories |
+| `--max-repos <n>` | analyse at most `n` most recently pushed repositories |
+| `-q, --quiet` | no progress output |
+| `-h, --help` | help |
+
+</details>
+
+## 🤖 MCP server (for AI)
+
+<details open>
+<summary><b>Claude Code</b></summary>
 
 ```bash
-claude mcp add gitwings -e GITHUB_TOKEN=ghp_xxx -- node D:/path/to/GitWings/dist/mcp.js
+claude mcp add gitwings -e GITHUB_TOKEN=ghp_xxx -- node /path/to/GitWings/dist/mcp.js
 ```
 
-Claude Desktop / Cursor (`mcpServers`):
+</details>
+
+<details>
+<summary><b>Claude Desktop / Cursor</b></summary>
 
 ```json
 {
@@ -110,19 +223,23 @@ Claude Desktop / Cursor (`mcpServers`):
 }
 ```
 
-Инструменты:
-- **`generate_wings`** `{ target, include_forks?, include_private?, max_repos?, theme?, background?, label?, animate?, output_path?, image_url? }` — логин даёт крылья навыков по всем репозиториям, `owner/repo` — по одному репозиторию.
-- **`render_wings_from_stats`** `{ subject, stars, commits, languages, tech?, … }` — без обращения к GitHub: для приватных проектов, мокапов и прогноза вида «какими станут крылья при 10k звёзд».
+</details>
 
-Пример запроса: *«Сгенерируй крылья для моего профиля и добавь их в README»*.
+**Tools**
 
-## Крылья на главной странице профиля
+| Tool | Parameters | What it does |
+|---|---|---|
+| `generate_wings` | `target`, `include_forks?`, `include_private?`, `max_repos?`, `theme?`, `background?`, `label?`, `animate?`, `output_path?`, `image_url?` | a login gives skill wings across all repositories, `owner/repo` gives wings for one repository |
+| `render_wings_from_stats` | `subject`, `stars`, `commits`, `languages`, `tech?`, … | no GitHub calls: for private projects, mock-ups and “what will my wings look like at 10k stars” |
 
-1. Создайте репозиторий `YOUR_LOGIN/YOUR_LOGIN`: его README GitHub показывает на странице профиля.
-2. Скопируйте [examples/profile-workflow.yml](examples/profile-workflow.yml) в `.github/workflows/wings.yml` и замените `YOUR_NAME/GitWings` на свой форк этого репозитория.
-   Встроенный `github.token` видит все публичные репозитории. Чтобы учесть приватные, создайте токен со scope `repo`, положите его в секрет `WINGS_TOKEN` и передайте `token: ${{ secrets.WINGS_TOKEN }}` и `options: --include-private`.
-3. Запустите workflow вручную (Actions → Wings → Run workflow). SVG появятся в ветке `output`.
-4. Добавьте в README:
+> 💬 *“Generate wings for my profile and add them to my README.”*
+
+## 🏠 Wings on your profile page
+
+1. Create the repository `YOUR_LOGIN/YOUR_LOGIN`: GitHub shows its README on your profile page.
+2. Copy [examples/profile-workflow.yml](examples/profile-workflow.yml) to `.github/workflows/wings.yml` and replace `YOUR_NAME/GitWings` with your fork of this repository.
+3. Run the workflow by hand: <kbd>Actions</kbd> → <kbd>Wings</kbd> → <kbd>Run workflow</kbd>. The SVGs land in the `output` branch.
+4. Add this to your README:
 
 ```html
 <p align="center">
@@ -133,23 +250,82 @@ Claude Desktop / Cursor (`mcpServers`):
 </p>
 ```
 
-`<picture>` переключает вариант по теме GitHub, а не по теме ОС. Готовый сниппет со ссылками на технологии выдаёт `--snippet`.
+> [!TIP]
+> `<picture>` switches the variant by the GitHub theme, not the OS theme. `--snippet` prints a ready-made snippet with links to your technologies.
 
-## Разработка
+> [!CAUTION]
+> The built-in `github.token` sees only public repositories. To include private ones, create a token with the `repo` scope, store it in the `WINGS_TOKEN` secret and pass it in:
+>
+> ```yaml
+> - uses: YOUR_NAME/GitWings@main
+>   with:
+>     token: ${{ secrets.WINGS_TOKEN }}
+>     options: --include-private
+> ```
+
+<details>
+<summary><b>📥 Action inputs</b></summary>
+
+<br/>
+
+| Input | Default | Description |
+|---|---|---|
+| `target` | `${{ github.repository_owner }}` | `owner/repo`, or a username for profile wings |
+| `output` | `dist/wings.svg` | path of the light-theme SVG |
+| `dark_output` | `dist/wings-dark.svg` | path of the dark-theme SVG (empty to skip) |
+| `options` | | extra CLI flags, e.g. `--background --no-label` |
+| `token` | `${{ github.token }}` | token for the GitHub API |
+
+</details>
+
+## ❓ FAQ
+
+<details>
+<summary><b>Why SVG and not shaders + GIF?</b></summary>
+
+<br/>
+
+A GIF is limited to 256 colours, so gradients and glow band badly. It also weighs 2–10 MB versus ~50 KB for the SVG, and rendering it would need a headless browser with WebGL in CI, which has no GPU. The SVG stays sharp on any screen and the viewer's browser plays the animation. For users with `prefers-reduced-motion` the animation is turned off.
+
+</details>
+
+<details>
+<summary><b>Why does the label say “public repos” and “N+ technologies”?</b></summary>
+
+<br/>
+
+“public repos” means private repositories weren't analysed (see `--include-private`). The technology count has a `+` because only technologies from the [registry](src/tech.ts) are detected, so it's a lower bound.
+
+</details>
+
+<details>
+<summary><b>Can I preview wings without touching GitHub?</b></summary>
+
+<br/>
+
+Yes: `--stats file.json` in the CLI or `render_wings_from_stats` in MCP. See [examples/tiny.json](examples/tiny.json) for the format.
+
+</details>
+
+## 🛠 Development
 
 ```bash
 npm run build
 ```
 
-Предпросмотр всех примеров на тёмном и светлом фоне: [examples/gallery.html](examples/gallery.html).
+Preview every example on dark and light backgrounds: [examples/gallery.html](examples/gallery.html).
 
-```
+```text
 src/
-  tech.ts    реестр технологий: зависимости → черта, иконка, ссылка; цвета языков
-  github.ts  сбор данных: звёзды, коммиты, языки, дерево файлов, парсинг манифестов
-  wings.ts   рендер SVG: геометрия, слои перьев, черты, эмблемы, анимации
-  icons.ts   иконки simple-icons
-  cli.ts     CLI
-  mcp.ts     MCP-сервер
-action.yml   composite GitHub Action
+├─ tech.ts     technology registry: dependencies → trait, icon, link; language colours
+├─ github.ts   data collection: stars, commits, languages, file tree, manifest parsing
+├─ wings.ts    SVG renderer: geometry, feather layers, traits, badges, animations
+├─ icons.ts    simple-icons icons
+├─ cli.ts      CLI
+└─ mcp.ts      MCP server
+action.yml     composite GitHub Action
 ```
+
+<div align="center">
+<sub>Made with 🪽 by <a href="https://github.com/Quaximur">Quaximur</a></sub>
+</div>
