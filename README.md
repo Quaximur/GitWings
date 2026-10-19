@@ -14,7 +14,7 @@ It can also draw wings for a **single repository**.
 [![TypeScript](https://img.shields.io/badge/TypeScript-3178c6?logo=typescript&logoColor=white)](tsconfig.json)
 [![MCP](https://img.shields.io/badge/MCP-server-8a63d2?logo=anthropic&logoColor=white)](#-mcp-server-for-ai)
 [![GitHub Action](https://img.shields.io/badge/GitHub-Action-2088ff?logo=githubactions&logoColor=white)](action.yml)
-[![License: MIT](https://img.shields.io/badge/license-MIT-f5c542)](package.json)
+[![License: MIT](https://img.shields.io/badge/license-MIT-f5c542)](LICENSE)
 
 </div>
 
@@ -40,6 +40,7 @@ It can also draw wings for a **single repository**.
 - [Wings on your profile page](#-wings-on-your-profile-page)
 - [FAQ](#-faq)
 - [Development](#-development)
+- [License](#-license)
 
 </details>
 
@@ -325,6 +326,10 @@ src/
 └─ mcp.ts      MCP server
 action.yml     composite GitHub Action
 ```
+
+## 📄 License
+
+[MIT](LICENSE) © Quaximur
 
 <div align="center">
 <sub>Made with 🪽 by <a href="https://github.com/Quaximur">Quaximur</a></sub>

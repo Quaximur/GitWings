@@ -14,7 +14,7 @@ GitWings анализирует **все репозитории пользова
 [![TypeScript](https://img.shields.io/badge/TypeScript-3178c6?logo=typescript&logoColor=white)](tsconfig.json)
 [![MCP](https://img.shields.io/badge/MCP-server-8a63d2?logo=anthropic&logoColor=white)](#-mcp-сервер-для-ai)
 [![GitHub Action](https://img.shields.io/badge/GitHub-Action-2088ff?logo=githubactions&logoColor=white)](action.yml)
-[![License: MIT](https://img.shields.io/badge/license-MIT-f5c542)](package.json)
+[![License: MIT](https://img.shields.io/badge/license-MIT-f5c542)](LICENSE)
 
 </div>
 
@@ -40,6 +40,7 @@ GitWings анализирует **все репозитории пользова
 - [Крылья на главной странице профиля](#-крылья-на-главной-странице-профиля)
 - [FAQ](#-faq)
 - [Разработка](#-разработка)
+- [Лицензия](#-лицензия)
 
 </details>
 
@@ -325,6 +326,10 @@ src/
 └─ mcp.ts      MCP-сервер
 action.yml     composite GitHub Action
 ```
+
+## 📄 Лицензия
+
+[MIT](LICENSE) © Quaximur
 
 <div align="center">
 <sub>Сделано с 🪽 — <a href="https://github.com/Quaximur">Quaximur</a></sub>
