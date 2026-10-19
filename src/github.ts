@@ -68,6 +68,20 @@ export class GitHubClient {
     return { data: (await res.json()) as T, link: res.headers.get("link") };
   }
 
+  /** GraphQL needs a token; throws when unauthenticated or on any query error. */
+  async graphql<T>(query: string, variables: Record<string, unknown> = {}): Promise<T> {
+    if (!this.token) throw new Error("GitHub GraphQL needs a token");
+    const res = await fetch(`${API}/graphql`, {
+      method: "POST",
+      headers: { ...this.headers(), "Content-Type": "application/json" },
+      body: JSON.stringify({ query, variables }),
+    });
+    if (!res.ok) throw new Error(`GitHub GraphQL ${res.status}`);
+    const body = (await res.json()) as { data?: T; errors?: { message: string }[] };
+    if (!body.data) throw new Error(`GitHub GraphQL: ${body.errors?.[0]?.message ?? "no data"}`);
+    return body.data;
+  }
+
   async raw(owner: string, repo: string, ref: string, path: string): Promise<string | null> {
     const url = `https://raw.githubusercontent.com/${owner}/${repo}/${encodeURIComponent(ref)}/${path.split("/").map(encodeURIComponent).join("/")}`;
     const res = await fetch(url, { headers: this.token ? { Authorization: `Bearer ${this.token}` } : {} });
@@ -116,7 +130,7 @@ export interface ProfileOptions {
  */
 export async function fetchUserStats(user: string, gh = new GitHubClient(), opts: ProfileOptions = {}): Promise<WingStats> {
   const log = opts.onProgress ?? (() => {});
-  const { data: profile } = await gh.request<{ login: string; html_url: string }>(`/users/${user}`);
+  const { data: profile } = await gh.request<UserInfo>(`/users/${user}`);
   const all = await listRepos(gh, profile.login, !!opts.includePrivate);
   const candidates = all
     .filter((r) => r.owner.login.toLowerCase() === profile.login.toLowerCase())
@@ -130,11 +144,12 @@ export async function fetchUserStats(user: string, gh = new GitHubClient(), opts
     log(`analysing ${repos.length} repositories`);
   }
 
+  const commitCounts = await countUserCommits(gh, profile, repos);
   let done = 0;
   const results = await mapPool(repos, gh.authenticated ? 8 : 4, async (r) => {
-    const [langs, commits, scan] = await Promise.all([
+    const commits = commitCounts.get(r.full_name) ?? 0;
+    const [langs, scan] = await Promise.all([
       gh.request<Record<string, number>>(`/repos/${r.full_name}/languages`).then((x) => x.data).catch(() => ({})),
-      countCommits(gh, profile.login, r.name, r.default_branch, profile.login),
       scanStack(gh, profile.login, r.name, r.default_branch).catch(() => null),
     ]);
     if (++done % 10 === 0 || done === repos.length) log(`  ${done}/${repos.length}`);
@@ -209,6 +224,13 @@ interface RepoInfo {
   owner: { login: string };
 }
 
+interface UserInfo {
+  login: string;
+  id: number;
+  node_id: string;
+  html_url: string;
+}
+
 export function parseRepo(input: string): [string, string] {
   const m = input.trim().replace(/\.git$/, "").match(/(?:github\.com[/:])?([\w.-]+)\/([\w.-]+)\/?$/);
   if (!m) throw new Error(`Not a repository: "${input}" (expected owner/repo or a GitHub URL)`);
@@ -231,15 +253,73 @@ async function listRepos(gh: GitHubClient, user: string, includePrivate: boolean
   return all;
 }
 
-async function countCommits(gh: GitHubClient, owner: string, repo: string, branch: string, author?: string): Promise<number> {
+async function countCommits(gh: GitHubClient, owner: string, repo: string, branch: string): Promise<number> {
   try {
-    const by = author ? `&author=${encodeURIComponent(author)}` : "";
-    const { data, link } = await gh.request<unknown[]>(`/repos/${owner}/${repo}/commits?sha=${encodeURIComponent(branch)}&per_page=1${by}`);
+    const { data, link } = await gh.request<unknown[]>(`/repos/${owner}/${repo}/commits?sha=${encodeURIComponent(branch)}&per_page=1`);
     const last = link?.match(/[?&]page=(\d+)>;\s*rel="last"/);
     return last ? Number(last[1]) : data.length;
   } catch {
     return 0; // empty repositories answer 409
   }
+}
+
+const GRAPHQL_BATCH = 20;
+const REST_SAMPLE_PAGES = 5;
+
+/**
+ * The user's commits on each repository's default branch, keyed by full name.
+ * Matching goes by account ID, not login: `?author=<login>` misses commits whose noreply
+ * address still carries a login the account had before it was renamed.
+ */
+async function countUserCommits(gh: GitHubClient, user: UserInfo, repos: RepoInfo[]): Promise<Map<string, number>> {
+  const counts = new Map<string, number>();
+  if (gh.authenticated) {
+    try {
+      for (let i = 0; i < repos.length; i += GRAPHQL_BATCH) {
+        const batch = repos.slice(i, i + GRAPHQL_BATCH);
+        const fields = batch.map(
+          (r, j) => `r${j}: repository(owner: ${JSON.stringify(r.owner.login)}, name: ${JSON.stringify(r.name)}) {
+            defaultBranchRef { target { ... on Commit { history(author: { id: $id }) { totalCount } } } }
+          }`,
+        );
+        type Repo = { defaultBranchRef: { target: { history?: { totalCount: number } } } | null } | null;
+        const data = await gh.graphql<Record<string, Repo>>(`query($id: ID!) { ${fields.join(" ")} }`, { id: user.node_id });
+        batch.forEach((r, j) => counts.set(r.full_name, data[`r${j}`]?.defaultBranchRef?.target.history?.totalCount ?? 0));
+      }
+      return counts;
+    } catch {
+      counts.clear(); // fall through to REST
+    }
+  }
+  await mapPool(repos, gh.authenticated ? 8 : 4, async (r) => {
+    counts.set(r.full_name, await countCommitsById(gh, r, user.id));
+  });
+  return counts;
+}
+
+/**
+ * REST fallback: reads commit pages and keeps those GitHub attributes to the account ID.
+ * Large histories are sampled, and the count is extrapolated from the sampled share.
+ */
+async function countCommitsById(gh: GitHubClient, r: RepoInfo, userId: number): Promise<number> {
+  type Commit = { author: { id: number } | null };
+  const base = `/repos/${r.full_name}/commits?sha=${encodeURIComponent(r.default_branch)}&per_page=100`;
+  let mine = 0;
+  let seen = 0;
+  let lastPage = 1;
+  try {
+    for (let page = 1; page <= Math.min(lastPage, REST_SAMPLE_PAGES); page++) {
+      const { data, link } = await gh.request<Commit[]>(`${base}&page=${page}`);
+      if (page === 1) lastPage = Number(link?.match(/[?&]page=(\d+)>;\s*rel="last"/)?.[1] ?? 1);
+      seen += data.length;
+      mine += data.filter((c) => c.author?.id === userId).length;
+    }
+  } catch {
+    return mine; // empty repositories answer 409
+  }
+  if (lastPage <= REST_SAMPLE_PAGES || seen === 0) return mine;
+  // The last page holds 1..100 commits; assume it is half full.
+  return Math.round((mine / seen) * ((lastPage - 1) * 100 + 50));
 }
 
 /** Walks the repository tree, then reads dependency manifests to find frameworks. */
