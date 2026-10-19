@@ -16,10 +16,12 @@ export interface TechDef {
   id: string;
   label: string;
   trait: Trait;
-  /** Dependency names (lowercase). A trailing `*` means prefix match. */
+  /** Dependency names (lowercase). A trailing `*` means prefix match, a leading `*` suffix match. */
   deps?: string[];
   /** Regexes tested against repository file paths. */
   files?: RegExp[];
+  /** Dropped when one of these is detected in the same repository: it comes with that scaffold. */
+  impliedBy?: string[];
 }
 
 export const TECH: TechDef[] = [
@@ -48,6 +50,7 @@ export const TECH: TechDef[] = [
   { id: "laravel", label: "Laravel", trait: "runes", deps: ["laravel/framework"] },
   { id: "aspnet", label: "ASP.NET", trait: "runes", deps: ["microsoft.aspnetcore*", "sdk:microsoft.net.sdk.web"] },
   { id: "efcore", label: "EF Core", trait: "runes", deps: ["microsoft.entityframeworkcore*"] },
+  { id: "magiconion", label: "MagicOnion", trait: "runes", deps: ["magiconion*", "com.cysharp.magiconion*"] },
   { id: "grpc", label: "gRPC", trait: "runes", deps: ["grpc*", "@grpc/*", "google.golang.org/grpc", "tonic", "magiconion*"] },
   { id: "gin", label: "Gin", trait: "runes", deps: ["github.com/gin-gonic/gin"] },
   { id: "fiber", label: "Fiber", trait: "runes", deps: ["github.com/gofiber/fiber*"] },
@@ -92,6 +95,8 @@ export const TECH: TechDef[] = [
   { id: "kubernetes", label: "Kubernetes", trait: "hex", files: [/(^|\/)Chart\.yaml$/, /(^|\/)(k8s|kubernetes|helm)\//] },
   { id: "terraform", label: "Terraform", trait: "hex", files: [/\.tf$/] },
   { id: "actions", label: "GH Actions", trait: "hex", files: [/^\.github\/workflows\/.+\.ya?ml$/] },
+  { id: "testcontainers", label: "Testcontainers", trait: "hex", deps: ["testcontainers*", "@testcontainers/*", "org.testcontainers*"] },
+  { id: "xunit", label: "xUnit", trait: "hex", deps: ["xunit*"] },
   { id: "nix", label: "Nix", trait: "hex", files: [/(^|\/)flake\.nix$/, /(^|\/)default\.nix$/] },
 
   // ── Data ──────────────────────────────────────────────────
@@ -101,6 +106,7 @@ export const TECH: TechDef[] = [
   { id: "jupyter", label: "Jupyter", trait: "constellation", deps: ["jupyter", "notebook", "jupyterlab"], files: [/\.ipynb$/] },
   { id: "d3", label: "D3", trait: "constellation", deps: ["d3"] },
   { id: "postgres", label: "PostgreSQL", trait: "constellation", deps: ["pg", "psycopg*", "npgsql*", "asyncpg", "github.com/jackc/pgx*"] },
+  { id: "redis", label: "Redis", trait: "constellation", deps: ["redis", "ioredis", "stackexchange.redis*", "*.redis", "github.com/redis/go-redis*", "spring-boot-starter-data-redis"] },
   { id: "prisma", label: "Prisma", trait: "constellation", deps: ["prisma", "@prisma/client"] },
 
   // ── Web3 ──────────────────────────────────────────────────
@@ -109,9 +115,11 @@ export const TECH: TechDef[] = [
   { id: "solana", label: "Solana", trait: "crystal", deps: ["@solana/web3.js", "anchor-lang", "solana-program"] },
 
   // ── Reactive / misc, folded into the closest aura ─────────
-  { id: "rxjs", label: "RxJS", trait: "aurora", deps: ["rxjs"] },
+  { id: "rxjs", label: "RxJS", trait: "aurora", deps: ["rxjs"], impliedBy: ["nest", "angular"] },
   { id: "r3", label: "R3", trait: "aurora", deps: ["r3", "com.cysharp.r3"] },
   { id: "vcontainer", label: "VContainer", trait: "runes", deps: ["jp.hadashikick.vcontainer"] },
+  { id: "reflex", label: "Reflex", trait: "runes", deps: ["com.gustavopsantos.reflex"] },
+  { id: "unitask", label: "UniTask", trait: "pixel", deps: ["com.cysharp.unitask", "unitask"] },
 ];
 
 /** Languages whose dominance changes the feather shape. */
@@ -135,18 +143,22 @@ export const TRAIT_BY_LANGUAGE: Record<string, Trait> = {
 export type FeatherShape = "soft" | "blade" | "flowing";
 
 function depMatches(dep: string, pattern: string): boolean {
-  return pattern.endsWith("*") ? dep.startsWith(pattern.slice(0, -1)) : dep === pattern;
+  if (pattern.endsWith("*")) return dep.startsWith(pattern.slice(0, -1));
+  if (pattern.startsWith("*")) return dep.endsWith(pattern.slice(1));
+  return dep === pattern;
 }
 
 /** Match collected dependency names and file paths against the registry. */
 export function detectTech(deps: Iterable<string>, paths: Iterable<string>): TechDef[] {
   const depList = [...new Set([...deps].map((d) => d.toLowerCase()))];
   const pathList = [...paths];
-  return TECH.filter(
+  const found = TECH.filter(
     (t) =>
       t.deps?.some((p) => depList.some((d) => depMatches(d, p))) ||
       t.files?.some((re) => pathList.some((path) => re.test(path))),
   );
+  const ids = new Set(found.map((t) => t.id));
+  return found.filter((t) => !t.impliedBy?.some((id) => ids.has(id)));
 }
 
 /** Linguist colors for common languages (fallback: hashed hue). */
@@ -166,7 +178,9 @@ export const LANGUAGE_COLORS: Record<string, string> = {
 
 /** Icon (simple-icons slug) and reference URL for each technology. */
 export const TECH_META: Record<string, [icon: string | null, url: string]> = {
-  grpc: [null, "https://grpc.io"], react: ["react", "https://react.dev"], next: ["nextdotjs", "https://nextjs.org"], vue: ["vuedotjs", "https://vuejs.org"],
+  grpc: [null, "https://grpc.io"], magiconion: [null, "https://github.com/Cysharp/MagicOnion"],
+  redis: ["redis", "https://redis.io"], testcontainers: [null, "https://testcontainers.com"], xunit: [null, "https://xunit.net"],
+  reflex: [null, "https://github.com/gustavopsantos/Reflex"], unitask: [null, "https://github.com/Cysharp/UniTask"], react: ["react", "https://react.dev"], next: ["nextdotjs", "https://nextjs.org"], vue: ["vuedotjs", "https://vuejs.org"],
   nuxt: ["nuxt", "https://nuxt.com"], angular: ["angular", "https://angular.dev"], svelte: ["svelte", "https://svelte.dev"],
   solid: ["solid", "https://www.solidjs.com"], astro: ["astro", "https://astro.build"], tailwind: ["tailwindcss", "https://tailwindcss.com"],
   vite: ["vite", "https://vite.dev"], blazor: ["blazor", "https://dotnet.microsoft.com/apps/aspnet/web-apps/blazor"],

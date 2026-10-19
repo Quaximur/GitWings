@@ -44,7 +44,7 @@ const API = "https://api.github.com";
 const MANIFESTS = new Set([
   "package.json", "requirements.txt", "requirements-dev.txt", "pyproject.toml", "Pipfile", "setup.py",
   "Cargo.toml", "go.mod", "Gemfile", "composer.json", "pubspec.yaml", "pom.xml", "build.gradle",
-  "build.gradle.kts", "mix.exs", "manifest.json", "Directory.Packages.props",
+  "build.gradle.kts", "mix.exs", "manifest.json", "Directory.Packages.props", "packages.config",
 ]);
 const SKIP_DIRS = /(^|\/)(node_modules|vendor|third_party|examples?|samples?|test|tests|fixtures|Library|\.yarn)\//;
 const MAX_MANIFESTS = 14;
@@ -425,6 +425,8 @@ export function parseManifest(file: string, text: string): string[] {
       grab(/<Package(?:Reference|Version)\s+Include="([^"]+)"/g);
       const sdk = text.match(/<Project\s+Sdk="([^"]+)"/);
       if (sdk) out.push(`sdk:${sdk[1]}`);
+    } else if (file === "packages.config") {
+      grab(/<package\s+id="([^"]+)"/g); // NuGet, also NuGetForUnity
     }
   } catch {
     /* malformed manifest — ignore */

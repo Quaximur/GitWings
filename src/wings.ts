@@ -156,7 +156,7 @@ function featherPath(shape: FeatherShape | "scale", L: number, w: number): strin
 // ─── Renderer ─────────────────────────────────────────────────────────
 
 const MIN_W = 560;
-const LEGEND_ROWS = 3;
+const LEGEND_ROWS = 4;
 const DEFAULT_LANG: LanguageStat = { name: "Code", share: 1, color: "#8b949e", icon: null, url: "https://github.com" };
 
 export function renderWings(stats: WingStats, opts: RenderOptions = {}): string {
@@ -392,7 +392,9 @@ function iconBadge(name: string, url: string, iconSlug: string | null, fallbackC
 }
 
 function monogram(name: string): string {
-  const parts = name.replace(/[^A-Za-z0-9+# ]/g, " ").trim().split(/\s+/);
+  // Words, or CamelCase parts of a single word: "UniTask" → UT, "gRPC" → GR, "VContainer" → VC.
+  let parts = name.replace(/[^A-Za-z0-9+# ]/g, " ").trim().split(/\s+/);
+  if (parts.length === 1) parts = name.match(/[A-Z]?[a-z]+|[A-Z]+(?![a-z])|\d+/g) ?? parts;
   return (parts.length > 1 ? parts[0][0] + parts[1][0] : name.slice(0, 2)).replace(/^./, (c) => c.toUpperCase());
 }
 
