@@ -384,9 +384,10 @@ function monogram(name: string): string {
   return (parts.length > 1 ? parts[0][0] + parts[1][0] : name.slice(0, 2)).replace(/^./, (c) => c.toUpperCase());
 }
 
+const inRepos = (n?: number) => (n ? ` · ${n} repo${n === 1 ? "" : "s"}` : "");
 const langBadge = (l: LanguageStat): Badge =>
-  iconBadge(l.name, l.url, l.icon, l.color, `${l.name} — ${(l.share * 100).toFixed(1)}%`);
-const techBadge = (t: TechStat): Badge => iconBadge(t.label, t.url, t.icon, "#6e7681", t.label);
+  iconBadge(l.name, l.url, l.icon, l.color, `${l.name} — ${(l.share * 100).toFixed(1)}%${inRepos(l.repos)}`);
+const techBadge = (t: TechStat): Badge => iconBadge(t.label, t.url, t.icon, "#6e7681", `${t.label}${inRepos(t.repos)}`);
 
 // ─── Heart: language donut with the top language in the middle ───────
 
@@ -560,6 +561,7 @@ function renderLabel(stats: WingStats, tier: Tier, langs: LanguageStat[], title:
     `★ ${formatCount(stats.stars)}`,
     `${formatCount(stats.commits)} commits`,
     stats.kind === "user" ? `${stats.repos} repos` : `${formatCount(stats.forks)} forks`,
+    `${stats.tech.length} technologies`,
   ];
 
   // Legend: languages (dot + %) then frameworks; links on each item.

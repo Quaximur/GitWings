@@ -1,0 +1,45 @@
+{
+  "kind": "user",
+  "subject": "neuecc",
+  "url": "https://github.com/neuecc",
+  "stars": 12812,
+  "forks": 1530,
+  "commits": 1815,
+  "repos": 15,
+  "languages": [
+    {
+      "name": "C#",
+      "share": 0.9980741477814676,
+      "color": "#178600",
+      "icon": "dotnet",
+      "url": "https://learn.microsoft.com/dotnet/csharp",
+      "repos": 10
+    }
+  ],
+  "tech": [
+    {
+      "id": "unity",
+      "label": "Unity",
+      "trait": "pixel",
+      "icon": "unity",
+      "url": "https://unity.com",
+      "repos": 4
+    },
+    {
+      "id": "actions",
+      "label": "GH Actions",
+      "trait": "hex",
+      "icon": "githubactions",
+      "url": "https://github.com/features/actions",
+      "repos": 1
+    },
+    {
+      "id": "aspnet",
+      "label": "ASP.NET",
+      "trait": "runes",
+      "icon": "dotnet",
+      "url": "https://dotnet.microsoft.com/apps/aspnet",
+      "repos": 1
+    }
+  ]
+}

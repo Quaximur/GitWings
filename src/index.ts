@@ -1,19 +1,19 @@
-import { fetchRepoStats, fetchUserStats, GitHubClient, type WingStats } from "./github.js";
+import { fetchRepoStats, fetchUserStats, GitHubClient, type ProfileOptions, type WingStats } from "./github.js";
 import { formatCount, renderWings, tierFor, type RenderOptions } from "./wings.js";
 
 export * from "./github.js";
 export * from "./wings.js";
 export { TECH, type Trait } from "./tech.js";
 
-/** "owner/repo" or a repo URL → repository wings; a bare login → profile wings. */
-export async function fetchStats(target: string, token?: string): Promise<WingStats> {
-  const gh = new GitHubClient(token);
-  const t = target.trim().replace(/^@/, "");
-  return t.includes("/") ? fetchRepoStats(t, gh) : fetchUserStats(t, gh);
+/** A login → profile wings (skills across all repositories); "owner/repo" or a repo URL → one repository. */
+export async function fetchStats(target: string, opts: ProfileOptions & { token?: string } = {}): Promise<WingStats> {
+  const gh = new GitHubClient(opts.token);
+  const t = target.trim().replace(/^@/, "").replace(/^https?:\/\/github\.com\/([^/]+)\/?$/, "$1");
+  return t.includes("/") ? fetchRepoStats(t, gh) : fetchUserStats(t, gh, opts);
 }
 
-export async function generateWings(target: string, opts: RenderOptions & { token?: string } = {}) {
-  const stats = await fetchStats(target, opts.token);
+export async function generateWings(target: string, opts: RenderOptions & ProfileOptions & { token?: string } = {}) {
+  const stats = await fetchStats(target, opts);
   return { stats, svg: renderWings(stats, opts) };
 }
 

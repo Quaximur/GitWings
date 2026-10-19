@@ -4,11 +4,17 @@ import { dirname } from "node:path";
 import { parseArgs } from "node:util";
 import { fetchStats, readmeSnippet, renderWings, type WingStats } from "./index.js";
 
-const HELP = `gitwings — gorgeous SVG wings from a GitHub repository or profile
+const HELP = `gitwings — gorgeous SVG wings that show a developer's skills
 
 Usage:
-  gitwings <owner/repo | repo-url | username> [options]
-  gitwings --stats stats.json [options]
+  gitwings <username>               wings from ALL of the user's repositories
+  gitwings <owner/repo | repo-url>  wings for a single repository
+  gitwings --stats stats.json       render from saved stats (offline)
+
+Profile options:
+      --include-forks    Also analyse forked repositories
+      --include-private  Also analyse private repositories (token of that user, repo scope)
+      --max-repos <n>    Analyse at most n most recently pushed repositories
 
 Options:
   -o, --output <file>    Write the SVG here (default: stdout)
@@ -41,6 +47,10 @@ async function main() {
       snippet: { type: "string" },
       "snippet-dark": { type: "string" },
       "dark-output": { type: "string" },
+      "include-forks": { type: "boolean", default: false },
+      "include-private": { type: "boolean", default: false },
+      "max-repos": { type: "string" },
+      quiet: { type: "boolean", short: "q", default: false },
       help: { type: "boolean", short: "h" },
     },
   });
@@ -53,7 +63,12 @@ async function main() {
 
   const stats: WingStats = values.stats
     ? JSON.parse(await readFile(values.stats, "utf8"))
-    : await fetchStats(positionals[0]);
+    : await fetchStats(positionals[0], {
+        includeForks: values["include-forks"],
+        includePrivate: values["include-private"],
+        maxRepos: values["max-repos"] ? Number(values["max-repos"]) : undefined,
+        onProgress: values.quiet ? undefined : (m) => console.error(m),
+      });
 
   const render = (theme: "auto" | "dark" | "light") =>
     renderWings(stats, {

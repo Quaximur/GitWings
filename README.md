@@ -1,8 +1,10 @@
 # 🪽 GitWings
 
-Генератор анимированных SVG-крыльев по GitHub-репозиторию или профилю.
-Вид крыльев определяют коммиты, звёзды и технический стек. Готовые крылья можно повесить на главную страницу GitHub-аккаунта.
+Анимированные SVG-крылья, которые описывают навыки разработчика.
+GitWings анализирует **все репозитории пользователя**: языки, фреймворки, коммиты и звёзды. Готовые крылья вешаются на главную страницу GitHub-аккаунта.
+Отдельная фича — крылья для **одного репозитория**.
 
+<p align="center"><img src="examples/profile-neuecc.svg" width="100%"/></p>
 <p align="center"><img src="examples/huggingface_transformers.svg" width="100%"/></p>
 <p align="center"><img src="examples/tokio-rs_axum.svg" width="49%"/> <img src="examples/tiny.svg" width="49%"/></p>
 
@@ -13,6 +15,18 @@
 | **CLI** `gitwings` | вручную, локально |
 | **MCP-сервер** `gitwings-mcp` | для AI-ассистентов: Claude Code, Claude Desktop, Cursor… |
 | **GitHub Action** | ежедневное автообновление крыльев в профиле |
+
+## Профиль: навыки по всем репозиториям
+
+Если передать логин, анализируются все собственные репозитории (форки и пустые пропускаются):
+
+- **Языки = навыки.** Каждый репозиторий даёт вклад *доля языка в репо × вес репо*, где вес = `1 + log2(1 + ваши коммиты в репо)`. Значит, важен объём вашей работы, а не размер кода: один огромный проект с вендорным кодом не перекрывает остальные.
+- **Фреймворки** ранжируются по числу репозиториев, где они используются. Эмблемы показывают самые частые, а подсказка сообщает, например, «React · 7 repos».
+- **Коммиты** — ваши коммиты (author = вы) во всех проанализированных репозиториях.
+- **Звёзды** суммируются по вашим репозиториям.
+- Флаги: `--include-forks`, `--include-private` (нужен токен этого пользователя со scope `repo`; на картинку попадают только агрегированные языки и технологии, названия репозиториев не выводятся), `--max-repos N`.
+
+На каждый репозиторий уходит ~3 запроса к API. Без токена анализируются только 15 последних репозиториев, с `GITHUB_TOKEN` — все.
 
 ## Как данные превращаются в крылья
 
@@ -60,18 +74,18 @@ npm install && npm run build
 ## CLI
 
 ```bash
-node dist/cli.js facebook/react -o wings.svg
+node dist/cli.js YOUR_LOGIN -o wings.svg --theme light --dark-output wings-dark.svg
 ```
 
 ```bash
-node dist/cli.js YOUR_LOGIN -o wings.svg --theme light --dark-output wings-dark.svg
+node dist/cli.js facebook/react -o repo-wings.svg
 ```
 
 ```bash
 node dist/cli.js --stats examples/tiny.json -o tiny.svg --background
 ```
 
-Флаги: `--theme auto|dark|light`, `--background`, `--no-label`, `--no-animate`, `--title`, `--json stats.json`, `--snippet <url> [--snippet-dark <url>]`. Если передан логин вместо `owner/repo`, крылья строятся по профилю: звёзды суммируются по своим репозиториям, языки берутся из топ-12 репозиториев, стек — из топ-6, коммиты — через поиск по автору.
+Флаги: `--theme auto|dark|light`, `--background`, `--no-label`, `--no-animate`, `--title`, `--json stats.json`, `--snippet <url> [--snippet-dark <url>]`, `-q` (без прогресса) и профильные флаги, описанные выше.
 
 ## MCP-сервер (для AI)
 
@@ -96,7 +110,7 @@ Claude Desktop / Cursor (`mcpServers`):
 ```
 
 Инструменты:
-- **`generate_wings`** `{ target, theme?, background?, label?, animate?, output_path?, image_url? }` — крылья для репозитория или профиля.
+- **`generate_wings`** `{ target, include_forks?, include_private?, max_repos?, theme?, background?, label?, animate?, output_path?, image_url? }` — логин даёт крылья навыков по всем репозиториям, `owner/repo` — по одному репозиторию.
 - **`render_wings_from_stats`** `{ subject, stars, commits, languages, tech?, … }` — без обращения к GitHub: для приватных проектов, мокапов и прогноза вида «какими станут крылья при 10k звёзд».
 
 Пример запроса: *«Сгенерируй крылья для моего профиля и добавь их в README»*.
@@ -105,6 +119,7 @@ Claude Desktop / Cursor (`mcpServers`):
 
 1. Создайте репозиторий `YOUR_LOGIN/YOUR_LOGIN`: его README GitHub показывает на странице профиля.
 2. Скопируйте [examples/profile-workflow.yml](examples/profile-workflow.yml) в `.github/workflows/wings.yml` и замените `YOUR_NAME/GitWings` на свой форк этого репозитория.
+   Встроенный `github.token` видит все публичные репозитории. Чтобы учесть приватные, создайте токен со scope `repo`, положите его в секрет `WINGS_TOKEN` и передайте `token: ${{ secrets.WINGS_TOKEN }}` и `options: --include-private`.
 3. Запустите workflow вручную (Actions → Wings → Run workflow). SVG появятся в ветке `output`.
 4. Добавьте в README:
 

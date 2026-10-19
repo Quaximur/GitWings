@@ -8,6 +8,8 @@ export interface LanguageStat {
   color: string;
   icon: string | null;
   url: string;
+  /** Profile mode: repositories that use the language. */
+  repos?: number;
 }
 
 export interface TechStat {
@@ -16,6 +18,8 @@ export interface TechStat {
   trait: TechDef["trait"];
   icon: string | null;
   url: string;
+  /** Profile mode: repositories that use the technology. */
+  repos?: number;
 }
 
 export interface WingStats {
@@ -26,7 +30,7 @@ export interface WingStats {
   stars: number;
   forks: number;
   commits: number;
-  /** Number of public repositories (user mode) or 1. */
+  /** Repositories analysed (profile mode) or 1. */
   repos: number;
   languages: LanguageStat[];
   tech: TechStat[];
@@ -43,6 +47,10 @@ const MAX_MANIFESTS = 14;
 
 export class GitHubClient {
   constructor(private token = process.env.GITHUB_TOKEN ?? process.env.GH_TOKEN) {}
+
+  get authenticated(): boolean {
+    return !!this.token;
+  }
 
   private headers(): Record<string, string> {
     const h: Record<string, string> = { Accept: "application/vnd.github+json", "User-Agent": "gitwings" };
@@ -90,50 +98,98 @@ export async function fetchRepoStats(fullName: string, gh = new GitHubClient()):
   };
 }
 
-export async function fetchUserStats(user: string, gh = new GitHubClient(), deepScan = 6): Promise<WingStats> {
-  const { data: profile } = await gh.request<{ login: string; html_url: string; public_repos: number }>(`/users/${user}`);
-  const repos = await listRepos(gh, profile.login);
-  const own = repos.filter((r) => !r.fork && !r.archived);
-  const ranked = [...own].sort(
-    (a, b) => b.stargazers_count - a.stargazers_count || Date.parse(b.pushed_at) - Date.parse(a.pushed_at),
-  );
+export interface ProfileOptions {
+  /** Include forked repositories. Default false. */
+  includeForks?: boolean;
+  /** Include private repositories (needs a token of that user with repo scope). Default false. */
+  includePrivate?: boolean;
+  /** Analyse at most this many repositories (most recently pushed first). Default: all with a token, 15 without. */
+  maxRepos?: number;
+  /** Called with progress messages. */
+  onProgress?: (message: string) => void;
+}
 
-  const langBytes: Record<string, number> = {};
-  const langTargets = ranked.slice(0, 12);
-  const langResults = await Promise.all(
-    langTargets.map((r) => gh.request<Record<string, number>>(`/repos/${r.full_name}/languages`).then((x) => x.data).catch(() => ({}))),
-  );
-  for (const bytes of langResults) for (const [k, v] of Object.entries(bytes)) langBytes[k] = (langBytes[k] ?? 0) + v;
-
-  const deps = new Set<string>();
-  const paths = new Set<string>();
-  const scans = await Promise.all(
-    ranked.slice(0, deepScan).map((r) => scanStack(gh, profile.login, r.name, r.default_branch).catch(() => null)),
-  );
-  for (const s of scans) {
-    s?.deps.forEach((d) => deps.add(d));
-    s?.paths.forEach((p) => paths.add(p));
+/**
+ * Profile wings describe the person's skills: every repository they own is analysed.
+ * Each repository counts by how much the user worked on it (their commits), not by its size,
+ * so one huge vendored project does not drown out everything else.
+ */
+export async function fetchUserStats(user: string, gh = new GitHubClient(), opts: ProfileOptions = {}): Promise<WingStats> {
+  const log = opts.onProgress ?? (() => {});
+  const { data: profile } = await gh.request<{ login: string; html_url: string }>(`/users/${user}`);
+  const all = await listRepos(gh, profile.login, !!opts.includePrivate);
+  const candidates = all
+    .filter((r) => r.owner.login.toLowerCase() === profile.login.toLowerCase())
+    .filter((r) => (opts.includeForks || !r.fork) && r.size > 0)
+    .sort((a, b) => Date.parse(b.pushed_at) - Date.parse(a.pushed_at));
+  const limit = opts.maxRepos ?? (gh.authenticated ? Infinity : 15);
+  const repos = candidates.slice(0, limit);
+  if (repos.length < candidates.length) {
+    log(`analysing ${repos.length} of ${candidates.length} repositories${gh.authenticated ? "" : " — set GITHUB_TOKEN to analyse all"}`);
+  } else {
+    log(`analysing ${repos.length} repositories`);
   }
 
-  const commits = await gh
-    .request<{ total_count: number }>(`/search/commits?q=author:${profile.login}&per_page=1`)
-    .then((r) => r.data.total_count)
-    .catch(async () => {
-      const counts = await Promise.all(ranked.slice(0, 10).map((r) => countCommits(gh, profile.login, r.name, r.default_branch)));
-      return counts.reduce((a, b) => a + b, 0);
-    });
+  let done = 0;
+  const results = await mapPool(repos, gh.authenticated ? 8 : 4, async (r) => {
+    const [langs, commits, scan] = await Promise.all([
+      gh.request<Record<string, number>>(`/repos/${r.full_name}/languages`).then((x) => x.data).catch(() => ({})),
+      countCommits(gh, profile.login, r.name, r.default_branch, profile.login),
+      scanStack(gh, profile.login, r.name, r.default_branch).catch(() => null),
+    ]);
+    if (++done % 10 === 0 || done === repos.length) log(`  ${done}/${repos.length}`);
+    return { repo: r, langs, commits, tech: scan ? detectTech(scan.deps, scan.paths) : [] };
+  });
+
+  // Language skill = Σ over repos of (language share in repo × repo weight).
+  const langWeight: Record<string, number> = {};
+  const langRepos: Record<string, number> = {};
+  const techRepos = new Map<string, { def: TechDef; repos: number }>();
+  for (const { langs, commits, tech } of results) {
+    const total = Object.values(langs).reduce((a, b) => a + b, 0);
+    const weight = 1 + Math.log2(1 + commits);
+    if (total > 0) {
+      for (const [name, bytes] of Object.entries(langs)) {
+        const share = bytes / total;
+        langWeight[name] = (langWeight[name] ?? 0) + share * weight;
+        if (share >= 0.05) langRepos[name] = (langRepos[name] ?? 0) + 1;
+      }
+    }
+    for (const def of tech) {
+      const entry = techRepos.get(def.id) ?? { def, repos: 0 };
+      entry.repos++;
+      techRepos.set(def.id, entry);
+    }
+  }
+
+  const commits = results.reduce((s, r) => s + r.commits, 0);
+  const rankedTech = [...techRepos.values()].sort((a, b) => b.repos - a.repos);
 
   return {
     kind: "user",
     subject: profile.login,
     url: profile.html_url,
-    stars: own.reduce((s, r) => s + r.stargazers_count, 0),
-    forks: own.reduce((s, r) => s + r.forks_count, 0),
+    stars: repos.reduce((s, r) => s + r.stargazers_count, 0),
+    forks: repos.reduce((s, r) => s + r.forks_count, 0),
     commits,
-    repos: profile.public_repos,
-    languages: toLanguageStats(langBytes),
-    tech: toTechStats(detectTech(deps, paths)),
+    repos: repos.length,
+    languages: toLanguageStats(langWeight, 8).map((l) => ({ ...l, repos: langRepos[l.name] ?? 1 })),
+    tech: toTechStats(rankedTech.map((t) => t.def)).map((t, i) => ({ ...t, repos: rankedTech[i].repos })),
   };
+}
+
+async function mapPool<T, R>(items: T[], concurrency: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+  const out: R[] = new Array(items.length);
+  let next = 0;
+  await Promise.all(
+    Array.from({ length: Math.min(concurrency, items.length) }, async () => {
+      while (next < items.length) {
+        const i = next++;
+        out[i] = await fn(items[i]);
+      }
+    }),
+  );
+  return out;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────
@@ -148,6 +204,9 @@ interface RepoInfo {
   fork: boolean;
   archived: boolean;
   pushed_at: string;
+  size: number;
+  private: boolean;
+  owner: { login: string };
 }
 
 export function parseRepo(input: string): [string, string] {
@@ -156,19 +215,26 @@ export function parseRepo(input: string): [string, string] {
   return [m[1], m[2]];
 }
 
-async function listRepos(gh: GitHubClient, user: string): Promise<RepoInfo[]> {
+async function listRepos(gh: GitHubClient, user: string, includePrivate: boolean): Promise<RepoInfo[]> {
+  let base = `/users/${user}/repos?type=owner`;
+  if (includePrivate) {
+    const me = await gh.request<{ login: string }>("/user").then((r) => r.data.login).catch(() => null);
+    if (me?.toLowerCase() !== user.toLowerCase()) throw new Error("--include-private needs a token that belongs to " + user);
+    base = "/user/repos?affiliation=owner&visibility=all";
+  }
   const all: RepoInfo[] = [];
-  for (let page = 1; page <= 3; page++) {
-    const { data } = await gh.request<RepoInfo[]>(`/users/${user}/repos?per_page=100&type=owner&sort=pushed&page=${page}`);
+  for (let page = 1; page <= 20; page++) {
+    const { data } = await gh.request<RepoInfo[]>(`${base}&per_page=100&sort=pushed&page=${page}`);
     all.push(...data);
     if (data.length < 100) break;
   }
   return all;
 }
 
-async function countCommits(gh: GitHubClient, owner: string, repo: string, branch: string): Promise<number> {
+async function countCommits(gh: GitHubClient, owner: string, repo: string, branch: string, author?: string): Promise<number> {
   try {
-    const { data, link } = await gh.request<unknown[]>(`/repos/${owner}/${repo}/commits?sha=${encodeURIComponent(branch)}&per_page=1`);
+    const by = author ? `&author=${encodeURIComponent(author)}` : "";
+    const { data, link } = await gh.request<unknown[]>(`/repos/${owner}/${repo}/commits?sha=${encodeURIComponent(branch)}&per_page=1${by}`);
     const last = link?.match(/[?&]page=(\d+)>;\s*rel="last"/);
     return last ? Number(last[1]) : data.length;
   } catch {

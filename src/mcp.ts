@@ -28,7 +28,8 @@ async function respond(stats: WingStats, args: RenderArgs) {
     `${stats.subject}: ${tier.name} wings`,
     `stars ${stats.stars}, commits ${stats.commits}, forks ${stats.forks}`,
     `languages: ${stats.languages.map((l) => `${l.name} ${(l.share * 100).toFixed(1)}%`).join(", ") || "—"}`,
-    `tech: ${stats.tech.map((t) => `${t.label} (${t.trait})`).join(", ") || "—"}`,
+    `tech: ${stats.tech.map((t) => `${t.label} (${t.trait}${t.repos ? `, ${t.repos} repos` : ""})`).join(", ") || "—"}`,
+    stats.kind === "user" ? `repositories analysed: ${stats.repos}` : "",
   ];
   if (args.output_path) {
     const path = resolve(args.output_path);
@@ -47,13 +48,21 @@ server.registerTool(
   {
     title: "Generate GitHub wings",
     description:
-      "Generate animated SVG wings for a GitHub repository (owner/repo or URL) or a user profile (login). " +
-      "Commits shape feather count and layers, stars set wingspan, tier and glow, languages color the feathers, " +
-      "frameworks add visual traits and linked icon badges. Use output_path to save the SVG to a file.",
-    inputSchema: { target: z.string().describe("owner/repo, a GitHub repo URL, or a username"), ...renderShape },
+      "Generate animated SVG wings that show a developer's skills. Given a username, ALL of their repositories are " +
+      "analysed: languages are weighted by how much the user committed to each repo, frameworks are ranked by how many " +
+      "repos use them. Given owner/repo, only that repository is used. Commits shape feathers and layers, stars set " +
+      "wingspan, tier and glow, languages color the feathers, frameworks add visual traits and linked icon badges.",
+    inputSchema: {
+      target: z.string().describe("A GitHub username (profile skills) or owner/repo / repo URL (single repository)"),
+      include_forks: z.boolean().optional().describe("Profile: also analyse forks"),
+      include_private: z.boolean().optional().describe("Profile: also analyse private repos (token must belong to the user)"),
+      max_repos: z.number().int().positive().optional().describe("Profile: analyse at most N most recently pushed repos"),
+      ...renderShape,
+    },
     annotations: { readOnlyHint: false, openWorldHint: true },
   },
-  async ({ target, ...args }) => respond(await fetchStats(target), args),
+  async ({ target, include_forks, include_private, max_repos, ...args }) =>
+    respond(await fetchStats(target, { includeForks: include_forks, includePrivate: include_private, maxRepos: max_repos }), args),
 );
 
 server.registerTool(
