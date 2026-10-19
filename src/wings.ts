@@ -185,8 +185,8 @@ export function renderWings(stats: WingStats, opts: RenderOptions = {}): string 
   }
   const traits = [...traitWeight.entries()].sort((a, b) => b[1] - a[1]).map(([t]) => t);
   const has = (t: Trait) => traitWeight.has(t);
-  // Sparkles reach 0.7·span above the shoulders, a constellation 0.95·span.
-  const cy = Math.round(span * (has("constellation") ? 0.95 : 0.72) + 16);
+  // Raised wing tips and sparkles reach ~0.7·span above the shoulders; the constellation stays within that band.
+  const cy = Math.round(span * 0.72 + 16);
 
   // Language sectors: tip (u=0) → body (u=1)
   const cumulative: number[] = [];
@@ -506,7 +506,7 @@ function hexPlates(g: Geometry, tier: Tier): string {
 function constellation(cx: number, cy: number, span: number, rnd: () => number): string {
   const stars: Pt[] = Array.from({ length: 14 }, () => ({
     x: cx + (rnd() - 0.5) * span * 2.6,
-    y: cy - span * 0.2 - rnd() * span * 0.75,
+    y: cy - span * 0.15 - rnd() * span * 0.55,
   }));
   const chain = [...stars].sort((a, b) => a.x - b.x).slice(0, 9);
   const d = "M" + chain.map((p) => `${f(p.x)} ${f(p.y)}`).join("L");
