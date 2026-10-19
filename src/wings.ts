@@ -148,7 +148,8 @@ function featherPath(shape: FeatherShape | "scale", L: number, w: number): strin
 
 // ─── Renderer ─────────────────────────────────────────────────────────
 
-const W = 900;
+const MIN_W = 560;
+const LEGEND_ROWS = 3;
 const DEFAULT_LANG: LanguageStat = { name: "Code", share: 1, color: "#8b949e", icon: null, url: "https://github.com" };
 
 export function renderWings(stats: WingStats, opts: RenderOptions = {}): string {
@@ -164,9 +165,10 @@ export function renderWings(stats: WingStats, opts: RenderOptions = {}): string 
   const starPower = clamp(Math.log10(stats.stars + 1) / 4.7, 0, 1);
   const span = 300 * lerp(0.66, 1, starPower);
   const g = makeGeometry(span);
-  const cx = W / 2;
-  const cy = 220;
   const gap = 34;
+  // The canvas hugs the scene: wing tips reach ~1.2·span past the gap, scattered traits ~1.3·span from the center.
+  const W = Math.max(MIN_W, Math.round(2 * Math.max(gap + span * 1.22, span * 1.3) + 32));
+  const cx = W / 2;
 
   // commits → feathers & layers
   const commitPower = Math.log10(stats.commits + 1);
@@ -183,6 +185,8 @@ export function renderWings(stats: WingStats, opts: RenderOptions = {}): string 
   }
   const traits = [...traitWeight.entries()].sort((a, b) => b[1] - a[1]).map(([t]) => t);
   const has = (t: Trait) => traitWeight.has(t);
+  // Sparkles reach 0.7·span above the shoulders, a constellation 0.95·span.
+  const cy = Math.round(span * (has("constellation") ? 0.95 : 0.72) + 16);
 
   // Language sectors: tip (u=0) → body (u=1)
   const cumulative: number[] = [];
@@ -309,9 +313,9 @@ export function renderWings(stats: WingStats, opts: RenderOptions = {}): string 
 
   // ── Label ──
   const wingBottom = cy + span * 0.48;
-  const labelY = Math.max(wingBottom + 34, 380);
-  const height = showLabel ? labelY + 74 : wingBottom + 30;
-  const label = showLabel ? renderLabel(stats, tier, langs, opts.title, labelY) : "";
+  const labelY = wingBottom + 34;
+  const label = showLabel ? renderLabel(stats, tier, langs, opts.title, labelY, W) : null;
+  const height = label ? labelY + 74 + (label.rows - 1) * 20 : wingBottom + 30;
 
   const style = `
     .t1{font:700 22px 'Segoe UI',Ubuntu,'Helvetica Neue',sans-serif;fill:var(--fg)}
@@ -348,7 +352,7 @@ export function renderWings(stats: WingStats, opts: RenderOptions = {}): string 
   return (
     `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 ${W} ${f(height)}" width="${W}" height="${f(height)}" role="img" aria-label="${esc(desc)}">` +
     `<title>${esc(desc)}</title><style>${style}</style><defs>${defs.join("")}</defs>${bg}` +
-    `<g class="bob">${back.join("")}${scene.join("")}${front.join("")}</g>${label}` +
+    `<g class="bob">${back.join("")}${scene.join("")}${front.join("")}</g>${label?.svg ?? ""}` +
     `<!-- traits: ${traits.join(", ") || "none"} · shape: ${shape} · layers: ${layerCount} · feathers: ${n0} -->` +
     `</svg>`
   );
@@ -554,7 +558,14 @@ function sparkles(cx: number, cy: number, span: number, stars: number, tier: Tie
 
 // ─── Label ────────────────────────────────────────────────────────────
 
-function renderLabel(stats: WingStats, tier: Tier, langs: LanguageStat[], title: string | undefined, y: number): string {
+function renderLabel(
+  stats: WingStats,
+  tier: Tier,
+  langs: LanguageStat[],
+  title: string | undefined,
+  y: number,
+  W: number,
+): { svg: string; rows: number } {
   const name = title ?? stats.subject;
   const parts = [
     `${tier.name} wings`,
@@ -564,30 +575,45 @@ function renderLabel(stats: WingStats, tier: Tier, langs: LanguageStat[], title:
     `${stats.tech.length} technologies`,
   ];
 
-  // Legend: languages (dot + %) then frameworks; links on each item.
-  let x = 0;
-  const items: string[] = [];
+  // Legend: languages (dot + %) then frameworks; links on each item. Wraps onto up to LEGEND_ROWS rows.
   const charW = 7;
-  const maxW = W - 80;
+  const maxW = W - 48;
+  const rows: { items: string[]; w: number }[] = [{ items: [], w: 0 }];
+  const place = (w: number, item: (x: number) => string): boolean => {
+    let row = rows[rows.length - 1];
+    if (row.w + w > maxW && row.items.length) {
+      if (rows.length === LEGEND_ROWS) return false;
+      rows.push((row = { items: [], w: 0 }));
+    }
+    row.items.push(item(row.w));
+    row.w += w;
+    return true;
+  };
   for (const l of langs) {
     const text = `${l.name} ${(l.share * 100).toFixed(0)}%`;
-    const w = 12 + text.length * charW + 14;
-    if (x + w > maxW) break;
-    items.push(
-      `<a href="${esc(l.url)}" xlink:href="${esc(l.url)}" target="_blank"><circle cx="${f(x + 4)}" cy="-4" r="4" fill="${l.color}"/><text class="t3" x="${f(x + 12)}">${esc(text)}</text></a>`,
+    const fits = place(
+      12 + text.length * charW + 14,
+      (x) =>
+        `<a href="${esc(l.url)}" xlink:href="${esc(l.url)}" target="_blank"><circle cx="${f(x + 4)}" cy="-4" r="4" fill="${l.color}"/><text class="t3" x="${f(x + 12)}">${esc(text)}</text></a>`,
     );
-    x += w;
+    if (!fits) break;
   }
   for (const t of stats.tech) {
-    const w = (t.label.length + 2) * charW + 18;
-    if (x + w > maxW) break;
-    items.push(`<a href="${esc(t.url)}" xlink:href="${esc(t.url)}" target="_blank"><text class="t3" x="${f(x)}">◆ ${esc(t.label)}</text></a>`);
-    x += w;
+    const fits = place(
+      (t.label.length + 2) * charW + 18,
+      (x) => `<a href="${esc(t.url)}" xlink:href="${esc(t.url)}" target="_blank"><text class="t3" x="${f(x)}">◆ ${esc(t.label)}</text></a>`,
+    );
+    if (!fits) break;
   }
+  const legend = rows
+    .map((row, i) => `<g transform="translate(${f(W / 2 - row.w / 2)} ${f(y + 48 + i * 20)})">${row.items.join("")}</g>`)
+    .join("");
 
-  return (
-    `<g text-anchor="middle"><a href="${esc(stats.url)}" xlink:href="${esc(stats.url)}" target="_blank"><text class="t1" x="${W / 2}" y="${f(y)}">${esc(name)}</text></a>` +
-    `<text class="t2" x="${W / 2}" y="${f(y + 22)}">${esc(parts.join("  ·  "))}</text></g>` +
-    `<g transform="translate(${f(W / 2 - x / 2)} ${f(y + 48)})">${items.join("")}</g>`
-  );
+  return {
+    svg:
+      `<g text-anchor="middle"><a href="${esc(stats.url)}" xlink:href="${esc(stats.url)}" target="_blank"><text class="t1" x="${W / 2}" y="${f(y)}">${esc(name)}</text></a>` +
+      `<text class="t2" x="${W / 2}" y="${f(y + 22)}">${esc(parts.join("  ·  "))}</text></g>` +
+      legend,
+    rows: rows.length,
+  };
 }
