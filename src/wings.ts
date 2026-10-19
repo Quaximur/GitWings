@@ -580,9 +580,10 @@ function renderLabel(
     `${tier.name} wings`,
     `★ ${formatCount(stats.stars)}`,
     `${formatCount(activity.count)} ${activity.noun}`,
-    stats.kind === "user" ? `${stats.repos} repos` : `${formatCount(stats.forks)} forks`,
-    `${stats.tech.length} technologies`,
+    stats.kind === "user" ? `${stats.repos} ${stats.includesPrivate ? "" : "public "}repos` : `${formatCount(stats.forks)} forks`,
   ];
+  // Only technologies in the registry are detected, so the count is a lower bound.
+  if (stats.tech.length) parts.push(`${stats.tech.length}+ technologies`);
 
   // Legend: languages (dot + %) then frameworks; links on each item. Wraps onto up to LEGEND_ROWS rows.
   const charW = 7;

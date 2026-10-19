@@ -34,6 +34,8 @@ export interface WingStats {
   contributions?: number;
   /** Repositories analysed (profile mode) or 1. */
   repos: number;
+  /** Profile mode: whether private repositories were analysed too. */
+  includesPrivate?: boolean;
   languages: LanguageStat[];
   tech: TechStat[];
 }
@@ -197,6 +199,7 @@ export async function fetchUserStats(user: string, gh = new GitHubClient(), opts
     commits,
     contributions,
     repos: repos.length,
+    includesPrivate: repos.some((r) => r.private),
     languages: toLanguageStats(langWeight, 8).map((l) => ({ ...l, repos: langRepos[l.name] ?? 1 })),
     tech: toTechStats(rankedTech.map((t) => t.def)).map((t, i) => ({ ...t, repos: rankedTech[i].repos })),
   };
