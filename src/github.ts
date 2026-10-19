@@ -30,6 +30,8 @@ export interface WingStats {
   stars: number;
   forks: number;
   commits: number;
+  /** Profile mode: all-time contributions as on the profile graph. Needs a token; absent without one. */
+  contributions?: number;
   /** Repositories analysed (profile mode) or 1. */
   repos: number;
   languages: LanguageStat[];
@@ -144,7 +146,13 @@ export async function fetchUserStats(user: string, gh = new GitHubClient(), opts
     log(`analysing ${repos.length} repositories`);
   }
 
-  const commitCounts = await countUserCommits(gh, profile, repos);
+  const [commitCounts, contributions] = await Promise.all([
+    countUserCommits(gh, profile, repos),
+    countContributions(gh, profile.login).catch((e: Error) => {
+      log(`contributions unavailable (${e.message}) — falling back to commits`);
+      return undefined;
+    }),
+  ]);
   let done = 0;
   const results = await mapPool(repos, gh.authenticated ? 8 : 4, async (r) => {
     const commits = commitCounts.get(r.full_name) ?? 0;
@@ -187,6 +195,7 @@ export async function fetchUserStats(user: string, gh = new GitHubClient(), opts
     stars: repos.reduce((s, r) => s + r.stargazers_count, 0),
     forks: repos.reduce((s, r) => s + r.forks_count, 0),
     commits,
+    contributions,
     repos: repos.length,
     languages: toLanguageStats(langWeight, 8).map((l) => ({ ...l, repos: langRepos[l.name] ?? 1 })),
     tech: toTechStats(rankedTech.map((t) => t.def)).map((t, i) => ({ ...t, repos: rankedTech[i].repos })),
@@ -261,6 +270,27 @@ async function countCommits(gh: GitHubClient, owner: string, repo: string, branc
   } catch {
     return 0; // empty repositories answer 409
   }
+}
+
+/**
+ * All-time contributions, summed like the profile graph: the calendar total of every contribution year.
+ * Includes private contributions when the user shows them on their profile.
+ */
+async function countContributions(gh: GitHubClient, login: string): Promise<number | undefined> {
+  if (!gh.authenticated) return undefined;
+  type Years = { user: { contributionsCollection: { contributionYears: number[] } } };
+  const { user } = await gh.graphql<Years>(`query($login: String!) { user(login: $login) { contributionsCollection { contributionYears } } }`, { login });
+  const years = user.contributionsCollection.contributionYears;
+  if (!years.length) return 0;
+  // A collection spans at most a year and must not end in the future.
+  const now = new Date().toISOString();
+  const fields = years.map((y) => {
+    const to = `${y}-12-31T23:59:59Z` < now ? `${y}-12-31T23:59:59Z` : now;
+    return `y${y}: contributionsCollection(from: "${y}-01-01T00:00:00Z", to: "${to}") { contributionCalendar { totalContributions } }`;
+  });
+  type Totals = { user: Record<string, { contributionCalendar: { totalContributions: number } }> };
+  const data = await gh.graphql<Totals>(`query($login: String!) { user(login: $login) { ${fields.join(" ")} } }`, { login });
+  return years.reduce((s, y) => s + data.user[`y${y}`].contributionCalendar.totalContributions, 0);
 }
 
 const GRAPHQL_BATCH = 20;

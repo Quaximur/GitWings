@@ -26,7 +26,7 @@ async function respond(stats: WingStats, args: RenderArgs) {
   const tier = tierFor(stats.stars);
   const summary = [
     `${stats.subject}: ${tier.name} wings`,
-    `stars ${stats.stars}, commits ${stats.commits}, forks ${stats.forks}`,
+    `stars ${stats.stars}, commits ${stats.commits}${stats.contributions !== undefined ? `, contributions ${stats.contributions}` : ""}, forks ${stats.forks}`,
     `languages: ${stats.languages.map((l) => `${l.name} ${(l.share * 100).toFixed(1)}%`).join(", ") || "—"}`,
     `tech: ${stats.tech.map((t) => `${t.label} (${t.trait}${t.repos ? `, ${t.repos} repos` : ""})`).join(", ") || "—"}`,
     stats.kind === "user" ? `repositories analysed: ${stats.repos}` : "",

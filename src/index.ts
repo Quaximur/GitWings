@@ -1,5 +1,5 @@
 import { fetchRepoStats, fetchUserStats, GitHubClient, type ProfileOptions, type WingStats } from "./github.js";
-import { formatCount, renderWings, tierFor, type RenderOptions } from "./wings.js";
+import { activityOf, formatCount, renderWings, tierFor, type RenderOptions } from "./wings.js";
 
 export * from "./github.js";
 export * from "./wings.js";
@@ -23,6 +23,7 @@ export async function generateWings(target: string, opts: RenderOptions & Profil
  */
 export function readmeSnippet(stats: WingStats, imageUrl: string, darkImageUrl?: string): string {
   const tier = tierFor(stats.stars);
+  const activity = activityOf(stats);
   const links = [
     ...stats.languages.map((l) => `<a href="${l.url}">${l.name}</a>`),
     ...stats.tech.map((t) => `<a href="${t.url}">${t.label}</a>`),
@@ -38,6 +39,6 @@ export function readmeSnippet(stats: WingStats, imageUrl: string, darkImageUrl?:
     `  <a href="${stats.url}">${picture}</a>`,
     `</p>`,
     ``,
-    `<p align="center"><sub>${tier.name} wings · ★ ${formatCount(stats.stars)} · ${formatCount(stats.commits)} commits · ${links.join(" · ")}</sub></p>`,
+    `<p align="center"><sub>${tier.name} wings · ★ ${formatCount(stats.stars)} · ${formatCount(activity.count)} ${activity.noun} · ${links.join(" · ")}</sub></p>`,
   ].join("\n");
 }

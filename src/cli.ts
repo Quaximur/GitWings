@@ -2,7 +2,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import { parseArgs } from "node:util";
-import { fetchStats, readmeSnippet, renderWings, type WingStats } from "./index.js";
+import { activityOf, fetchStats, readmeSnippet, renderWings, type WingStats } from "./index.js";
 
 const HELP = `gitwings — gorgeous SVG wings that show a developer's skills
 
@@ -84,7 +84,7 @@ async function main() {
   if (values.json) await save(values.json, JSON.stringify(stats, null, 2));
   if (values.output) {
     await save(values.output, svg);
-    console.error(`🪽  ${stats.subject}: ${stats.stars}★, ${stats.commits} commits, ` +
+    console.error(`🪽  ${stats.subject}: ${stats.stars}★, ${activityOf(stats).count} ${activityOf(stats).noun}, ` +
       `${stats.languages.map((l) => l.name).join("/") || "no languages"}` +
       `${stats.tech.length ? " + " + stats.tech.map((t) => t.label).join(", ") : ""} → ${values.output}`);
   } else if (!values.snippet) {

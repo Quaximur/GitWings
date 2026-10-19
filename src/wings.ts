@@ -1,7 +1,7 @@
 // Renders WingStats into an animated SVG.
 //
 // Mapping:
-//   commits   → feather count and number of feather layers
+//   activity  → feather count and number of feather layers (profile contributions, else commits)
 //   stars     → wingspan, tier metal (bone, halo, badges), glow and sparkles
 //   languages → feather colors (sectors from tip to body) + heart donut + badges
 //   tech      → visual traits (aurora, runes, neural, pixel, ember, prism, hex, constellation, crystal) + badges
@@ -96,6 +96,13 @@ function luminance(c: string): number {
   return 0.2126 * r + 0.7152 * g + 0.0722 * b;
 }
 
+/** What drives the feathers and the label: all-time contributions for profiles when known, otherwise commits. */
+export function activityOf(stats: WingStats): { count: number; noun: string } {
+  return stats.contributions !== undefined
+    ? { count: stats.contributions, noun: "contributions" }
+    : { count: stats.commits, noun: "commits" };
+}
+
 export function formatCount(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(n >= 10_000_000 ? 0 : 1)}M`;
   if (n >= 1_000) return `${(n / 1_000).toFixed(n >= 10_000 ? 0 : 1)}k`;
@@ -170,10 +177,11 @@ export function renderWings(stats: WingStats, opts: RenderOptions = {}): string 
   const W = Math.max(MIN_W, Math.round(2 * Math.max(gap + span * 1.22, span * 1.3) + 32));
   const cx = W / 2;
 
-  // commits → feathers & layers
-  const commitPower = Math.log10(stats.commits + 1);
+  // activity → feathers & layers
+  const activity = activityOf(stats);
+  const commitPower = Math.log10(activity.count + 1);
   const n0 = Math.round(clamp(7 + 3 * commitPower, 7, 19));
-  const layerCount = stats.commits >= 2000 ? 4 : stats.commits >= 300 ? 3 : stats.commits >= 30 ? 2 : 1;
+  const layerCount = activity.count >= 2000 ? 4 : activity.count >= 300 ? 3 : activity.count >= 30 ? 2 : 1;
 
   // stack → shape & traits
   const shape = SHAPE_BY_LANGUAGE[primary.name] ?? "soft";
@@ -347,7 +355,7 @@ export function renderWings(stats: WingStats, opts: RenderOptions = {}): string 
   const bg = opts.background
     ? `<rect x=".5" y=".5" width="${W - 1}" height="${f(height - 1)}" rx="14" fill="var(--card)" stroke="#8b949e" stroke-opacity=".25"/>`
     : "";
-  const desc = `${stats.subject}: ${tier.name} wings — ${stats.stars} stars, ${stats.commits} commits; ${langs.map((l) => l.name).join(", ")}${stats.tech.length ? "; " + stats.tech.map((t) => t.label).join(", ") : ""}`;
+  const desc = `${stats.subject}: ${tier.name} wings — ${stats.stars} stars, ${activity.count} ${activity.noun}; ${langs.map((l) => l.name).join(", ")}${stats.tech.length ? "; " + stats.tech.map((t) => t.label).join(", ") : ""}`;
 
   return (
     `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 ${W} ${f(height)}" width="${W}" height="${f(height)}" role="img" aria-label="${esc(desc)}">` +
@@ -567,10 +575,11 @@ function renderLabel(
   W: number,
 ): { svg: string; rows: number } {
   const name = title ?? stats.subject;
+  const activity = activityOf(stats);
   const parts = [
     `${tier.name} wings`,
     `★ ${formatCount(stats.stars)}`,
-    `${formatCount(stats.commits)} commits`,
+    `${formatCount(activity.count)} ${activity.noun}`,
     stats.kind === "user" ? `${stats.repos} repos` : `${formatCount(stats.forks)} forks`,
     `${stats.tech.length} technologies`,
   ];
