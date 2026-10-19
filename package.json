@@ -1,0 +1,40 @@
+{
+  "name": "gitwings",
+  "version": "0.1.0",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/cli.js",
+    "mcp": "node dist/mcp.js"
+  },
+  "keywords": [
+    "github",
+    "svg",
+    "profile",
+    "readme",
+    "mcp",
+    "wings"
+  ],
+  "license": "MIT",
+  "description": "Generate gorgeous animated SVG wings from a GitHub repository or profile — shaped by commits, stars and tech stack.",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.1",
+    "simple-icons": "^16.35.0",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "typescript": "^7.0.2"
+  },
+  "type": "module",
+  "bin": {
+    "gitwings": "dist/cli.js",
+    "gitwings-mcp": "dist/mcp.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=18"
+  }
+}

@@ -1,0 +1,43 @@
+import { fetchRepoStats, fetchUserStats, GitHubClient, type WingStats } from "./github.js";
+import { formatCount, renderWings, tierFor, type RenderOptions } from "./wings.js";
+
+export * from "./github.js";
+export * from "./wings.js";
+export { TECH, type Trait } from "./tech.js";
+
+/** "owner/repo" or a repo URL → repository wings; a bare login → profile wings. */
+export async function fetchStats(target: string, token?: string): Promise<WingStats> {
+  const gh = new GitHubClient(token);
+  const t = target.trim().replace(/^@/, "");
+  return t.includes("/") ? fetchRepoStats(t, gh) : fetchUserStats(t, gh);
+}
+
+export async function generateWings(target: string, opts: RenderOptions & { token?: string } = {}) {
+  const stats = await fetchStats(target, opts.token);
+  return { stats, svg: renderWings(stats, opts) };
+}
+
+/**
+ * Markdown for a profile README. GitHub shows SVGs through <img>, which makes
+ * links inside the picture unclickable, so every technology also gets a real link below it.
+ */
+export function readmeSnippet(stats: WingStats, imageUrl: string, darkImageUrl?: string): string {
+  const tier = tierFor(stats.stars);
+  const links = [
+    ...stats.languages.map((l) => `<a href="${l.url}">${l.name}</a>`),
+    ...stats.tech.map((t) => `<a href="${t.url}">${t.label}</a>`),
+  ];
+  const img = `<img src="${imageUrl}" alt="${tier.name} wings of ${stats.subject}" width="100%"/>`;
+  // <picture> follows the GitHub theme, unlike prefers-color-scheme inside the SVG.
+  const picture = darkImageUrl
+    ? `<picture><source media="(prefers-color-scheme: dark)" srcset="${darkImageUrl}"/>` +
+      `<source media="(prefers-color-scheme: light)" srcset="${imageUrl}"/>${img}</picture>`
+    : img;
+  return [
+    `<p align="center">`,
+    `  <a href="${stats.url}">${picture}</a>`,
+    `</p>`,
+    ``,
+    `<p align="center"><sub>${tier.name} wings · ★ ${formatCount(stats.stars)} · ${formatCount(stats.commits)} commits · ${links.join(" · ")}</sub></p>`,
+  ].join("\n");
+}

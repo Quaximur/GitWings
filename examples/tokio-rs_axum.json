@@ -1,0 +1,34 @@
+{
+  "kind": "repo",
+  "subject": "tokio-rs/axum",
+  "url": "https://github.com/tokio-rs/axum",
+  "stars": 27533,
+  "forks": 1531,
+  "commits": 2023,
+  "repos": 1,
+  "languages": [
+    {
+      "name": "Rust",
+      "share": 0.9999406419572325,
+      "color": "#dea584",
+      "icon": "rust",
+      "url": "https://www.rust-lang.org"
+    }
+  ],
+  "tech": [
+    {
+      "id": "axum",
+      "label": "Axum",
+      "trait": "runes",
+      "icon": "rust",
+      "url": "https://github.com/tokio-rs/axum"
+    },
+    {
+      "id": "actions",
+      "label": "GH Actions",
+      "trait": "hex",
+      "icon": "githubactions",
+      "url": "https://github.com/features/actions"
+    }
+  ]
+}

@@ -1,0 +1,55 @@
+{
+  "kind": "repo",
+  "subject": "react/react",
+  "url": "https://github.com/react/react",
+  "stars": 251385,
+  "forks": 51542,
+  "commits": 21735,
+  "repos": 1,
+  "languages": [
+    {
+      "name": "JavaScript",
+      "share": 0.4942603217604425,
+      "color": "#f1e05a",
+      "icon": "javascript",
+      "url": "https://developer.mozilla.org/docs/Web/JavaScript"
+    },
+    {
+      "name": "Rust",
+      "share": 0.260033860009848,
+      "color": "#dea584",
+      "icon": "rust",
+      "url": "https://www.rust-lang.org"
+    },
+    {
+      "name": "TypeScript",
+      "share": 0.22424724548611388,
+      "color": "#3178c6",
+      "icon": "typescript",
+      "url": "https://www.typescriptlang.org"
+    }
+  ],
+  "tech": [
+    {
+      "id": "react",
+      "label": "React",
+      "trait": "aurora",
+      "icon": "react",
+      "url": "https://react.dev"
+    },
+    {
+      "id": "next",
+      "label": "Next.js",
+      "trait": "aurora",
+      "icon": "nextdotjs",
+      "url": "https://nextjs.org"
+    },
+    {
+      "id": "actions",
+      "label": "GH Actions",
+      "trait": "hex",
+      "icon": "githubactions",
+      "url": "https://github.com/features/actions"
+    }
+  ]
+}

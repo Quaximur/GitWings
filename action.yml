@@ -1,0 +1,46 @@
+name: GitWings
+description: Generate animated SVG wings from a GitHub repository or profile (commits, stars, tech stack).
+branding:
+  icon: feather
+  color: purple
+
+inputs:
+  target:
+    description: "owner/repo, or a username for profile wings"
+    default: ${{ github.repository_owner }}
+  output:
+    description: Path of the light-theme SVG
+    default: dist/wings.svg
+  dark_output:
+    description: Path of the dark-theme SVG (empty to skip)
+    default: dist/wings-dark.svg
+  options:
+    description: "Extra CLI flags, e.g. --background --no-label --title 'My wings'"
+    default: ""
+  token:
+    description: Token for the GitHub API
+    default: ${{ github.token }}
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 22
+
+    - name: Build GitWings
+      shell: bash
+      working-directory: ${{ github.action_path }}
+      run: npm ci --no-audit --no-fund && npm run build
+
+    - name: Generate wings
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.token }}
+        TARGET: ${{ inputs.target }}
+        OUTPUT: ${{ inputs.output }}
+        DARK_OUTPUT: ${{ inputs.dark_output }}
+      run: |
+        args=("$TARGET" -o "$OUTPUT" --theme light)
+        [ -n "$DARK_OUTPUT" ] && args+=(--dark-output "$DARK_OUTPUT")
+        node "${{ github.action_path }}/dist/cli.js" "${args[@]}" ${{ inputs.options }}

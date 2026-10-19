@@ -1,0 +1,90 @@
+{
+  "kind": "repo",
+  "subject": "huggingface/transformers",
+  "url": "https://github.com/huggingface/transformers",
+  "stars": 167855,
+  "forks": 34910,
+  "commits": 24386,
+  "repos": 1,
+  "languages": [
+    {
+      "name": "Python",
+      "share": 0.9992957657886078,
+      "color": "#3572A5",
+      "icon": "python",
+      "url": "https://www.python.org"
+    }
+  ],
+  "tech": [
+    {
+      "id": "fastapi",
+      "label": "FastAPI",
+      "trait": "runes",
+      "icon": "fastapi",
+      "url": "https://fastapi.tiangolo.com"
+    },
+    {
+      "id": "pytorch",
+      "label": "PyTorch",
+      "trait": "neural",
+      "icon": "pytorch",
+      "url": "https://pytorch.org"
+    },
+    {
+      "id": "transformers",
+      "label": "Transformers",
+      "trait": "neural",
+      "icon": "huggingface",
+      "url": "https://huggingface.co/docs/transformers"
+    },
+    {
+      "id": "sklearn",
+      "label": "scikit-learn",
+      "trait": "neural",
+      "icon": "scikitlearn",
+      "url": "https://scikit-learn.org"
+    },
+    {
+      "id": "openai",
+      "label": "OpenAI",
+      "trait": "neural",
+      "icon": null,
+      "url": "https://platform.openai.com"
+    },
+    {
+      "id": "docker",
+      "label": "Docker",
+      "trait": "hex",
+      "icon": "docker",
+      "url": "https://www.docker.com"
+    },
+    {
+      "id": "actions",
+      "label": "GH Actions",
+      "trait": "hex",
+      "icon": "githubactions",
+      "url": "https://github.com/features/actions"
+    },
+    {
+      "id": "pandas",
+      "label": "pandas",
+      "trait": "constellation",
+      "icon": "pandas",
+      "url": "https://pandas.pydata.org"
+    },
+    {
+      "id": "numpy",
+      "label": "NumPy",
+      "trait": "constellation",
+      "icon": "numpy",
+      "url": "https://numpy.org"
+    },
+    {
+      "id": "postgres",
+      "label": "PostgreSQL",
+      "trait": "constellation",
+      "icon": "postgresql",
+      "url": "https://www.postgresql.org"
+    }
+  ]
+}

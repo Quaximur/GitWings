@@ -1,0 +1,69 @@
+{
+  "kind": "repo",
+  "subject": "Cysharp/R3",
+  "url": "https://github.com/Cysharp/R3",
+  "stars": 4023,
+  "forks": 191,
+  "commits": 778,
+  "repos": 1,
+  "languages": [
+    {
+      "name": "C#",
+      "share": 0.983957017703061,
+      "color": "#178600",
+      "icon": "dotnet",
+      "url": "https://learn.microsoft.com/dotnet/csharp"
+    }
+  ],
+  "tech": [
+    {
+      "id": "blazor",
+      "label": "Blazor",
+      "trait": "aurora",
+      "icon": "blazor",
+      "url": "https://dotnet.microsoft.com/apps/aspnet/web-apps/blazor"
+    },
+    {
+      "id": "aspnet",
+      "label": "ASP.NET",
+      "trait": "runes",
+      "icon": "dotnet",
+      "url": "https://dotnet.microsoft.com/apps/aspnet"
+    },
+    {
+      "id": "unity",
+      "label": "Unity",
+      "trait": "pixel",
+      "icon": "unity",
+      "url": "https://unity.com"
+    },
+    {
+      "id": "monogame",
+      "label": "MonoGame",
+      "trait": "pixel",
+      "icon": null,
+      "url": "https://monogame.net"
+    },
+    {
+      "id": "android",
+      "label": "Android",
+      "trait": "prism",
+      "icon": "android",
+      "url": "https://developer.android.com"
+    },
+    {
+      "id": "maui",
+      "label": ".NET MAUI",
+      "trait": "prism",
+      "icon": "dotnet",
+      "url": "https://dotnet.microsoft.com/apps/maui"
+    },
+    {
+      "id": "actions",
+      "label": "GH Actions",
+      "trait": "hex",
+      "icon": "githubactions",
+      "url": "https://github.com/features/actions"
+    }
+  ]
+}

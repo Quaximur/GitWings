@@ -1,0 +1,33 @@
+# Put this into your profile repository (github.com/<you>/<you>) as
+# .github/workflows/wings.yml — it regenerates the wings every day and
+# publishes them to the `output` branch, which your README links to.
+
+name: Wings
+
+on:
+  schedule:
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  wings:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: YOUR_NAME/GitWings@main
+        with:
+          target: ${{ github.repository_owner }} # or owner/repo for a single repository
+          output: dist/wings.svg
+          dark_output: dist/wings-dark.svg
+
+      - uses: crazy-max/ghaction-github-pages@v4
+        with:
+          target_branch: output
+          build_dir: dist
+          keep_history: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
