@@ -28,6 +28,8 @@ export interface RenderOptions {
   seed?: string;
   /** A small "grown with Quaximur/GitWings" link under the label. Default true. */
   credit?: boolean;
+  /** Languages and technologies under the stats line. Default true; the README snippet lists them as links instead. */
+  legend?: boolean;
 }
 
 export interface Tier {
@@ -712,7 +714,7 @@ export function renderWings(stats: WingStats, opts: RenderOptions = {}): string 
   const wingBottom = cy + Math.max(maxY, sigilR * 1.22 + 8);
   const labelY = wingBottom + 34;
   const credit = opts.credit ?? true;
-  const label = showLabel ? renderLabel(stats, tier, gen, langs, opts.title, labelY, W, credit) : null;
+  const label = showLabel ? renderLabel(stats, tier, gen, langs, opts.title, labelY, W, credit, opts.legend ?? true) : null;
   const height = label ? labelY + 92 + (label.rows - 1) * 20 + (credit ? 26 : 0) : wingBottom + 30;
 
   const style = `
@@ -1075,6 +1077,7 @@ function renderLabel(
   y: number,
   W: number,
   credit: boolean,
+  showLegend: boolean,
 ): { svg: string; rows: number } {
   const name = title ?? stats.subject;
   const activity = activityOf(stats);
@@ -1090,7 +1093,7 @@ function renderLabel(
   // Legend: languages (dot + %) then frameworks; links on each item. Wraps onto up to LEGEND_ROWS rows.
   const charW = 7;
   const maxW = W - 48;
-  const rows: { items: string[]; w: number }[] = [{ items: [], w: 0 }];
+  const rows: { items: string[]; w: number }[] = showLegend ? [{ items: [], w: 0 }] : [];
   const place = (w: number, item: (x: number) => string): boolean => {
     let row = rows[rows.length - 1];
     if (row.w + w > maxW && row.items.length) {
@@ -1101,7 +1104,7 @@ function renderLabel(
     row.w += w;
     return true;
   };
-  for (const l of langs) {
+  for (const l of showLegend ? langs : []) {
     const text = `${l.name} ${(l.share * 100).toFixed(0)}%`;
     const fits = place(
       12 + text.length * charW + 14,
@@ -1110,7 +1113,7 @@ function renderLabel(
     );
     if (!fits) break;
   }
-  for (const t of stats.tech) {
+  for (const t of showLegend ? stats.tech : []) {
     const fits = place(
       (t.label.length + 2) * charW + 18,
       (x) => `<a href="${esc(t.url)}" xlink:href="${esc(t.url)}" target="_blank"><text class="t3" x="${f(x)}">◆ ${esc(t.label)}</text></a>`,

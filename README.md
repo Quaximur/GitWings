@@ -187,7 +187,7 @@ The registry lives in [src/tech.ts](src/tech.ts); adding a technology takes one 
 The wings carry medallion badges with icons ([simple-icons](https://simpleicons.org), CC0): languages on the right wing, frameworks on the left. Every badge has a tooltip and a link to the technology's site, and the legend under the wings links out too.
 
 > [!WARNING]
-> GitHub renders README SVGs through `<img>`, so links *inside* the picture aren't clickable there. They work when the SVG is opened directly (click the image). That's why `--snippet` also prints an HTML line with real links to each technology to put under the picture, and the workflow can [keep it in your README](#-wings-on-your-profile-page) up to date.
+> GitHub renders README SVGs through `<img>`, so links *inside* the picture aren't clickable there. They work when the SVG is opened directly (click the image). That's why with `--snippet` the picture leaves out the legend and the credit, and the snippet puts them under it as real links: a badge with a logo for every language and technology. The workflow can [keep it in your README](#-wings-on-your-profile-page) up to date.
 
 ## 💻 CLI
 
@@ -224,7 +224,7 @@ node dist/cli.js --stats examples/tiny.json -o tiny.svg --background
 | `--seed <name>` | grow the wings of another name (another quirk) from the same data |
 | `--stats <file>` | render from a stats JSON instead of the API (offline) |
 | `--json <file>` | also save the collected stats as JSON |
-| `--snippet <url>` | print a README snippet that embeds the image from `<url>` |
+| `--snippet <url>` | print a README snippet that embeds the image from `<url>`, with linked badges for languages and technologies under it; the SVG then leaves out the legend and the credit |
 | `--snippet-dark <url>` | dark variant URL for the snippet (`<picture>`, follows the GitHub theme) |
 | `--readme <file>` | put the snippet between `<!-- gitwings:start -->` and `<!-- gitwings:end -->` in this file instead of printing it |
 | `--include-forks` | also analyse forks |
@@ -283,7 +283,7 @@ claude mcp add gitwings -e GITHUB_TOKEN=ghp_xxx -- node /path/to/GitWings/dist/m
 <!-- gitwings:end -->
 ```
 
-4. Run the workflow by hand: <kbd>Actions</kbd> → <kbd>Wings</kbd> → <kbd>Run workflow</kbd>. The SVGs land in the `output` branch, and the workflow fills the space between the markers with the picture plus a line of real, clickable links to your languages and frameworks. Every run rewrites that block, so the links always match the wings.
+4. Run the workflow by hand: <kbd>Actions</kbd> → <kbd>Wings</kbd> → <kbd>Run workflow</kbd>. The SVGs land in the `output` branch, and the workflow fills the space between the markers with the picture plus clickable badges for your languages and frameworks. Every run rewrites that block, so the links always match the wings.
 
 > [!TIP]
 > Anything outside the markers is left alone. The picture is a `<picture>` that switches the variant by the GitHub theme, not the OS theme.

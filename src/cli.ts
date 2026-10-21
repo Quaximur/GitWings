@@ -2,7 +2,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import { parseArgs } from "node:util";
-import { activityOf, fetchStats, readmeSnippet, renderWings, updateReadme, type WingStats } from "./index.js";
+import { activityOf, fetchStats, readmeSnippet, renderWings, snippetRenderOptions, updateReadme, type WingStats } from "./index.js";
 
 const HELP = `gitwings — gorgeous SVG wings that show a developer's skills
 
@@ -87,6 +87,8 @@ async function main() {
       title: values.title,
       seed: values.seed,
       credit: !values["no-credit"],
+      // The snippet lists languages, technologies and the credit as real links under the picture.
+      ...(values.snippet ? snippetRenderOptions : {}),
     });
   const svg = render(values.theme as "auto" | "dark" | "light");
   if (values["dark-output"]) await save(values["dark-output"], render("dark"));

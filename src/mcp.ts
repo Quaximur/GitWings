@@ -6,7 +6,7 @@ import { dirname, resolve } from "node:path";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
-import { fetchStats, genomeFor, readmeSnippet, renderWings, tierFor, toLanguageStats, toTechStats, TECH, type WingStats } from "./index.js";
+import { fetchStats, genomeFor, readmeSnippet, renderWings, snippetRenderOptions, tierFor, toLanguageStats, toTechStats, TECH, type WingStats } from "./index.js";
 
 const server = new McpServer({ name: "gitwings", version: "0.1.0" });
 
@@ -24,7 +24,7 @@ const renderShape = {
 type RenderArgs = { theme?: "auto" | "dark" | "light"; background?: boolean; label?: boolean; animate?: boolean; credit?: boolean; seed?: string; output_path?: string; image_url?: string };
 
 async function respond(stats: WingStats, args: RenderArgs) {
-  const svg = renderWings(stats, args);
+  const svg = renderWings(stats, args.image_url ? { ...args, ...snippetRenderOptions } : args);
   const tier = tierFor(stats.stars);
   const gen = genomeFor(args.seed ?? stats.subject);
   const summary = [
