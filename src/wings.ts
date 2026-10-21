@@ -116,6 +116,72 @@ export function formatCount(n: number): string {
   return String(n);
 }
 
+// ─── Soft light without filters ──────────────────────────────────────
+// A blur filter re-runs on every animation frame (GitHub shows the SVG as an <img>, rasterized on the CPU),
+// so glows are radial gradients and stacks of faint strokes that look like a blur.
+
+/** Blur radius of the big glows (wing aura, veil, heart, halo); stars make it wider. */
+const glowSigma = (power: number) => 6 + 10 * power;
+
+/** Error function, Abramowitz–Stegun 7.1.26. */
+function erf(x: number): number {
+  const t = 1 / (1 + 0.3275911 * Math.abs(x));
+  const y = 1 - ((((1.061405429 * t - 1.453152027) * t + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t * Math.exp(-x * x);
+  return Math.sign(x) * y;
+}
+
+/** Radius of the circle to fill with softDisc(r, sigma). */
+const softR = (r: number, sigma: number) => r + 2.5 * sigma;
+
+/** A radial gradient that looks like a disc of radius r blurred by sigma; fill a circle of softR(r, sigma) with it. */
+function softDisc(id: string, color: string, r: number, sigma: number): string {
+  const R = softR(r, sigma);
+  const k = Math.SQRT2 * sigma;
+  const stops = Array.from({ length: 7 }, (_, i) => {
+    const a = i === 6 ? 0 : 0.5 * (erf((r - (R * i) / 6) / k) + erf((r + (R * i) / 6) / k));
+    return `<stop offset="${Math.round((i / 6) * 100) / 100}" stop-color="${color}" stop-opacity="${Math.round(a * 100) / 100}"/>`;
+  });
+  return `<radialGradient id="${id}">${stops.join("")}</radialGradient>`;
+}
+
+/** Widths (in sigmas beyond the stroke) and opacities of the faint copies under a glowing stroke. */
+const GLOW_STEPS: [number, number][] = [[5, 0.1], [3.8, 0.15], [2.6, 0.22], [1.5, 0.3], [0.5, 0.42]];
+
+/** Faint, ever wider copies of a stroke: the look of a blurred stroke without a filter. */
+function glowStroke(d: string, color: string, width: number, sigma: number, opacity: number): string {
+  // A thin stroke blurred wide gets faint; an edge of a shape (width 0) stays half lit.
+  if (width) opacity *= erf(width / (2 * Math.SQRT2 * sigma));
+  return GLOW_STEPS.map(
+    ([w, a]) =>
+      `<path d="${d}" stroke="${color}" stroke-width="${f(width + w * sigma)}" stroke-opacity="${Math.round(opacity * a * 1000) / 1000}" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`,
+  ).join("");
+}
+
+/** A blurred-looking silhouette of a closed outline: a faint fill with glowing edges. */
+function softShape(d: string, color: string, sigma: number, opacity: number): string {
+  return `<path d="${d}" fill="${color}" opacity="${Math.round(opacity * 0.4 * 1000) / 1000}"/>` + glowStroke(d, color, 0, sigma, opacity);
+}
+
+/**
+ * Moves opacity="x" of a lone shape that only fills or only strokes into fill-opacity or stroke-opacity.
+ * It looks the same, but opacity makes the renderer paint the shape into a layer of its own and blend it, every frame.
+ * Shapes with a class keep it: their CSS animations drive opacity.
+ */
+function foldOpacity(svg: string): string {
+  return svg.replace(/<(path|circle|ellipse|rect|line|polygon|polyline)\b([^>]*?) opacity="([^"]*)"([^>]*)\/>/g, (m, tag, a, o, b) => {
+    const attrs = a + b;
+    if (/\bclass=|-opacity=/.test(attrs)) return m;
+    const filled = tag !== "line" && !/\bfill="none"/.test(attrs);
+    // An unfilled shape with no stroke of its own strokes with its group's (the sigil).
+    const stroked = /\bstroke="(?!none")/.test(attrs) || (!filled && !/\bstroke=/.test(attrs));
+    return filled === stroked ? m : `<${tag}${a} ${filled ? "fill" : "stroke"}-opacity="${o}"${b}/>`;
+  });
+}
+
+/** Path data of an ellipse, for strokes that need a path. */
+const ellipseD = (x: number, y: number, rx: number, ry: number) =>
+  `M${f(x - rx)} ${f(y)}a${f(rx)} ${f(ry)} 0 1 0 ${f(2 * rx)} 0a${f(rx)} ${f(ry)} 0 1 0 ${f(-2 * rx)} 0`;
+
 // ─── Wing geometry ────────────────────────────────────────────────────
 
 /** The skeleton of a wing: a leading edge, and the direction and depth of the wing behind each point of it. */
@@ -210,7 +276,14 @@ interface WingArt {
   body: string[];
   /** Outline points in wing coordinates, for sizing the canvas. */
   hull: Pt[];
+  /** Closed silhouette of the whole wing (path data), for its glow. */
+  outline: string;
+  /** The wing without fine detail, for the small echo wings: every animation frame redraws all of it. */
+  echo: string[];
 }
+
+/** A feather split into its silhouette and the fine detail drawn over it. */
+type FeatherArt = { shape: string; detail: string };
 
 const LAYER_TINTS = [-0.22, 0, 0.18, 0.36];
 const layerColor = (c: string, layer: number) => {
@@ -230,49 +303,55 @@ const LAYERS = [
 function composeWing(c: Ctx): WingArt {
   const { g, gen } = c;
   const body: string[] = [];
+  const echo: string[] = [];
+  const both = (s: string) => (body.push(s), echo.push(s));
   const hull: Pt[] = [];
   const bonePts = Array.from({ length: 24 }, (_, i) => g.bone(i / 23));
   hull.push(...bonePts);
+  const outline = `M${[...bonePts, ...Array.from({ length: 12 }, (_, i) => along(g, 1 - i / 11, 1.05, 1))].map(pt).join("L")}Z`;
 
-  if (gen.primaries === "ribbons" || gen.trail === "ribbons") {
-    // Veil: a blurred ghost of the whole wing.
-    const veil = [...bonePts, ...Array.from({ length: 12 }, (_, i) => along(g, 1 - i / 11, 1.05, 1))];
-    body.push(`<path d="M${veil.map(pt).join("L")}Z" fill="${gen.accent}" opacity=".16" filter="url(#glow)"/>`);
-  }
-  if (gen.trail === "ribbons") body.push(ribbons(c, [{ len: 1.55, width: 0.055, count: Math.max(4, Math.round(c.n0 / 2)), from: 0.3, to: 1 }], hull));
-  if (gen.trail === "streamers") body.push(streamers(c, hull));
+  // Veil: a blurred ghost of the whole wing.
+  if (gen.primaries === "ribbons" || gen.trail === "ribbons") body.push(softShape(outline, gen.accent, glowSigma(c.starPower), 0.16));
+  if (gen.trail === "ribbons") both(ribbons(c, [{ len: 1.55, width: 0.055, count: Math.max(4, Math.round(c.n0 / 2)), from: 0.3, to: 1 }], hull));
+  if (gen.trail === "streamers") both(streamers(c, hull));
 
   let over = "";
+  const layerOf = (layer: number, kind: "feathers" | "shards" | "scales", lenScale: number) => {
+    const l = featherLayer(c, layer, kind, hull, lenScale);
+    body.push(l.full);
+    echo.push(l.lite);
+  };
   switch (gen.primaries) {
     case "membrane": {
       const m = membrane(c, hull);
-      body.push(m.under);
+      both(m.under);
       over = m.over;
       break;
     }
     case "ribbons":
-      body.push(ribbons(c, RIBBON_ROWS.slice(0, gen.coverts === "none" ? clamp(c.layerCount, 1, 3) : 1), hull));
+      both(ribbons(c, RIBBON_ROWS.slice(0, gen.coverts === "none" ? clamp(c.layerCount, 1, 3) : 1), hull));
       break;
     default:
-      body.push(featherLayer(c, 0, gen.primaries, hull, 1));
+      layerOf(0, gen.primaries, 1);
   }
   if (gen.coverts !== "none") {
     // Over a membrane the coverts only clad the arm.
-    for (let layer = 1; layer < c.layerCount; layer++) body.push(featherLayer(c, layer, gen.coverts, hull, gen.primaries === "membrane" ? 0.6 : 1));
+    for (let layer = 1; layer < c.layerCount; layer++) layerOf(layer, gen.coverts, gen.primaries === "membrane" ? 0.6 : 1);
   }
 
   body.push(boneOf(c, bonePts), over);
   if (gen.primaries === "shards" || gen.coverts === "shards") body.push(splinters(c, hull));
-  return { body, hull };
+  return { body, hull, outline, echo };
 }
 
-function featherLayer(c: Ctx, layer: number, kind: "feathers" | "shards" | "scales", hull: Pt[], lenScale: number): string {
+function featherLayer(c: Ctx, layer: number, kind: "feathers" | "shards" | "scales", hull: Pt[], lenScale: number): { full: string; lite: string } {
   const { g, langs, rnd } = c;
   const spec = LAYERS[layer];
   const scales = kind === "scales" || (kind === "feathers" && layer === 3);
   const count = c.n0 + spec.extra + (scales && layer < 3 ? 3 : 0);
   const shape: Feather | "scale" = scales ? "scale" : layer === 2 && c.feather !== "blade" ? "soft" : c.feather;
   const items: string[] = [];
+  const shapes: string[] = [];
   for (let i = 0; i < count; i++) {
     const t = lerp(spec.to, spec.from, count === 1 ? 0 : i / (count - 1)); // tip first
     const b = g.bone(t);
@@ -281,13 +360,15 @@ function featherLayer(c: Ctx, layer: number, kind: "feathers" | "shards" | "scal
     const w = L * (scales ? 0.34 : kind === "shards" ? spec.width * 0.88 : spec.width);
     const li = c.langAt(1 - t);
     const item = kind === "shards" ? shardFeather(c, L, w, langs[li].color, layer) : softFeather(c, shape, L, w, li, layer);
-    items.push(`<g transform="translate(${pt(b)}) rotate(${f(a)})">${item}</g>`);
+    const at = `<g transform="translate(${pt(b)}) rotate(${f(a)})">`;
+    items.push(`${at}${item.shape}${item.detail}</g>`);
+    shapes.push(`${at}${item.shape}</g>`);
     hull.push(add(b, rot({ x: L * 1.08, y: 0 }, a)), add(b, rot({ x: L * 0.6, y: -w * 1.2 }, a)), add(b, rot({ x: L * 0.6, y: w }, a)));
   }
-  return `<g class="layer">${items.join("")}</g>`;
+  return { full: `<g class="layer">${items.join("")}</g>`, lite: `<g class="layer">${shapes.join("")}</g>` };
 }
 
-function softFeather(c: Ctx, shape: Feather | "scale", L: number, w: number, li: number, layer: number): string {
+function softFeather(c: Ctx, shape: Feather | "scale", L: number, w: number, li: number, layer: number): FeatherArt {
   const { gen, rnd } = c;
   const color = c.langs[li].color;
   const fill = gen.marking === "bands" && layer < 2 && shape !== "scale" ? `url(#b${li}_${layer})` : `url(#g${li}_${layer})`;
@@ -297,7 +378,8 @@ function softFeather(c: Ctx, shape: Feather | "scale", L: number, w: number, li:
       : gen.marking === "veil" && layer === 0
         ? ` stroke="${gen.accent}" stroke-width="1.2"`
         : ` stroke="${shade(color, 0.6)}" stroke-width=".6"`;
-  let out = `<path d="${featherPath(shape, L, w)}" fill="${fill}"${stroke} stroke-opacity=".8"/>`;
+  const outline = `<path d="${featherPath(shape, L, w)}" fill="${fill}"${stroke} stroke-opacity=".8"/>`;
+  let out = "";
   if (layer < 2 && shape !== "blade" && shape !== "scale") {
     out += `<path d="M2 0Q${f(L * 0.5)} ${f(-w * 0.12)} ${f(L * 0.93)} ${f(-w * 0.05)}" stroke="${tint(color, 0.7)}" stroke-width="1" fill="none" opacity=".55"/>`;
     let barbs = "";
@@ -305,7 +387,7 @@ function softFeather(c: Ctx, shape: Feather | "scale", L: number, w: number, li:
       const x = L * (0.3 + k * 0.15);
       barbs += `M${f(x)} ${f(-w * 0.05)}L${f(x + L * 0.07)} ${f(-w * 0.6)}M${f(x)} 0L${f(x + L * 0.06)} ${f(w * 0.5)}`;
     }
-    out += `<path d="${barbs}" stroke="${shade(color, 0.5)}" stroke-width=".7" opacity=".35"/>`;
+    out += `<path d="${barbs}" stroke="${shade(color, 0.5)}" stroke-width=".7" fill="none" opacity=".35"/>`;
   }
   if (shape === "scale" && layer < 3) out += `<path d="M${f(L * 0.2)} 0Q${f(L * 0.6)} ${f(-w * 0.3)} ${f(L * 0.9)} 0" stroke="${tint(color, 0.6)}" stroke-width=".8" fill="none" opacity=".5"/>`;
   if (gen.marking === "eyes" && layer === 0 && L > 40) out += ocellus(L * 0.8, -w * 0.08, w * 0.5, color, gen.accent);
@@ -314,21 +396,21 @@ function softFeather(c: Ctx, shape: Feather | "scale", L: number, w: number, li:
       out += `<circle cx="${f(L * (0.35 + rnd() * 0.5))}" cy="${f(w * (rnd() - 0.6) * 0.6)}" r="${f(0.8 + rnd() * 1.2)}" fill="${tint(gen.accent, 0.3)}" opacity=".7"/>`;
     }
   }
-  return out;
+  return { shape: outline, detail: out };
 }
 
-function shardFeather(c: Ctx, L: number, w: number, color: string, layer: number): string {
+function shardFeather(c: Ctx, L: number, w: number, color: string, layer: number): FeatherArt {
   const { gen, rnd } = c;
   const base = layerColor(color, layer);
   const top = { x: L * (0.28 + rnd() * 0.1), y: -w * 1.05 };
   const tip = { x: L * 1.04, y: -w * 0.08 };
   const bot = { x: L * (0.36 + rnd() * 0.1), y: w * 0.85 };
   const edge = c.has("prism") && layer === 0 ? "url(#prism)" : gen.marking === "veil" ? gen.accent : tint(base, 0.6);
-  let out =
+  const shape =
     `<path d="M0 0L${pt(top)}L${pt(tip)}Z" fill="${tint(base, 0.28)}" fill-opacity=".92"/>` +
     `<path d="M0 0L${pt(tip)}L${pt(bot)}Z" fill="${shade(base, 0.32)}" fill-opacity=".92"/>` +
-    `<path d="M0 0L${pt(top)}L${pt(tip)}L${pt(bot)}Z" fill="none" stroke="${edge}" stroke-width="${layer === 0 ? 1 : 0.6}" stroke-opacity=".85" stroke-linejoin="round"/>` +
-    `<path d="M0 0L${pt(tip)}" stroke="#ffffff" stroke-width=".7" opacity=".5"/>`;
+    `<path d="M0 0L${pt(top)}L${pt(tip)}L${pt(bot)}Z" fill="none" stroke="${edge}" stroke-width="${layer === 0 ? 1 : 0.6}" stroke-opacity=".85" stroke-linejoin="round"/>`;
+  let out = `<path d="M0 0L${pt(tip)}" stroke="#ffffff" stroke-width=".7" fill="none" opacity=".5"/>`;
   if (gen.marking === "bands" && layer < 2) {
     out += `<path d="M${pt(mid(top, tip, 0.55))}L${f(L * 0.7)} ${f(-w * 0.05)}L${pt(mid(bot, tip, 0.55))}" stroke="${shade(base, 0.6)}" stroke-width="1" fill="none" opacity=".6"/>`;
   }
@@ -336,7 +418,7 @@ function shardFeather(c: Ctx, L: number, w: number, color: string, layer: number
     const p = { x: L * (0.55 + rnd() * 0.3), y: -w * 0.3 };
     out += `<path class="tw" d="M${f(p.x)} ${f(p.y - 3)}L${f(p.x + 1.2)} ${f(p.y)}L${f(p.x)} ${f(p.y + 3)}L${f(p.x - 1.2)} ${f(p.y)}Z" fill="${tint(gen.accent, 0.5)}" style="animation-delay:${f(rnd() * 2.8)}s"/>`;
   }
-  return out;
+  return { shape, detail: out };
 }
 
 /** Crystal splinters drifting off the wing tip. */
@@ -360,7 +442,7 @@ function boneOf(c: Ctx, pts: Pt[]): string {
   if (gen.bone === "spectral") {
     const d = "M" + pts.map(pt).join("L");
     return (
-      `<path d="${d}" stroke="${gen.accent}" stroke-width="${f(6 + 3 * starPower)}" stroke-linecap="round" fill="none" opacity=".45" filter="url(#soft)"/>` +
+      glowStroke(d, gen.accent, 6 + 3 * starPower, 2, 0.45) +
       `<path d="${d}" stroke="url(#metal)" stroke-width="${f(2.5 + 2 * starPower)}" stroke-linecap="round" fill="none"/>`
     );
   }
@@ -430,7 +512,7 @@ function membrane(c: Ctx, hull: Pt[]): { under: string; over: string } {
         const p = mid(wrist, quadAt(a, ctrl, b, 0.2 + rnd() * 0.6), 0.25 + rnd() * 0.5);
         body.push(
           gen.marking === "eyes"
-            ? `<g class="pulse" style="animation-delay:${f(rnd() * 2.4)}s"><ellipse cx="${f(p.x)}" cy="${f(p.y)}" rx="4.2" ry="1.6" fill="${gen.accent}" filter="url(#soft)"/><ellipse cx="${f(p.x)}" cy="${f(p.y)}" rx="3" ry=".9" fill="${tint(gen.accent, 0.6)}"/></g>`
+            ? `<g class="pulse" style="animation-delay:${f(rnd() * 2.4)}s"><ellipse cx="${f(p.x)}" cy="${f(p.y)}" rx="9.2" ry="6.6" fill="url(#eyeGlow)"/><ellipse cx="${f(p.x)}" cy="${f(p.y)}" rx="3" ry=".9" fill="${tint(gen.accent, 0.6)}"/></g>`
             : `<circle cx="${f(p.x)}" cy="${f(p.y)}" r="${f(1 + rnd() * 1.4)}" fill="${tint(color, 0.45)}" opacity=".55"/>`,
         );
       }
@@ -634,8 +716,10 @@ export function renderWings(stats: WingStats, opts: RenderOptions = {}): string 
     `<linearGradient id="prism" gradientUnits="userSpaceOnUse" x1="0" y1="${f(-span * 0.6)}" x2="${f(span)}" y2="${f(span * 0.4)}">` +
       ["#ff6ec7", "#ffd36e", "#6effa8", "#6ec8ff", "#b26eff"].map((c, i) => `<stop offset="${i / 4}" stop-color="${c}"/>`).join("") +
       `</linearGradient>`,
-    `<filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="${f(6 + 10 * starPower)}"/></filter>`,
-    `<filter id="soft" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="2"/></filter>`,
+    softDisc("badgeShade", shade(tier.metal, 0.55), BADGE_R + 3, 2),
+    softDisc("heartGlow", primary.color, HEART_GLOW_R, glowSigma(starPower)),
+    gen.marking === "eyes" ? softDisc("eyeGlow", gen.accent, 2.6, 2) : "",
+    gen.motes === "fireflies" ? softDisc("moteGlow", gen.accent, MOTE_GLOW_R, 2) : "",
     `<radialGradient id="core"><stop offset="0" stop-color="${tint(primary.color, 0.6)}"/><stop offset="1" stop-color="${shade(primary.color, 0.55)}"/></radialGradient>`,
   );
 
@@ -655,6 +739,8 @@ export function renderWings(stats: WingStats, opts: RenderOptions = {}): string 
     wing.push(neural(grid, rnd));
   }
   defs.push(`<g id="wing">${wing.join("")}</g>`);
+  if (gen.echoes) defs.push(`<g id="echo">${art.echo.join("")}</g>`);
+  defs.push(`<g id="aura">${softShape(art.outline, tint(primary.color, 0.15), glowSigma(starPower), 0.3)}</g>`);
 
   // ── Canvas: hug the wings at both ends of the wingbeat, including echo pairs ──
   const [beatUp, beatDown] = gen.beat;
@@ -686,15 +772,15 @@ export function renderWings(stats: WingStats, opts: RenderOptions = {}): string 
   const glowing = stats.stars >= 50 || gen.primaries === "ribbons" || gen.bone === "spectral";
   for (const side of sides) {
     const mirror = side.sign < 0 ? " scale(-1 1)" : "";
-    const glow = glowing ? `<use href="#wing" filter="url(#glow)" opacity="${f(0.25 + 0.35 * starPower)}"/>` : "";
+    const glow = glowing ? `<use href="#aura" opacity="${f(0.25 + 0.35 * starPower)}"/>` : "";
     const echo = echoes
-      .map((e) => `<use href="#wing" transform="translate(${f(e.tx)} ${f(e.ty * span)}) rotate(${e.rot}) scale(${e.k})" opacity=".62"/>`)
+      .map((e) => `<use href="#echo" transform="translate(${f(e.tx)} ${f(e.ty * span)}) rotate(${e.rot}) scale(${e.k})" opacity=".62"/>`)
       .join("");
     const slots = side.badges.length;
     const badges = side.badges
       .map((b, i) => {
         const p = along(ag, slots === 1 ? 0.55 : lerp(0.86, 0.14, i / (slots - 1)), layerCount >= 2 ? 0.62 : 0.85, 0.55);
-        return `<g transform="translate(${pt(p)})${mirror}">${b(13, tier)}</g>`;
+        return `<g transform="translate(${pt(p)})${mirror}">${b(BADGE_R, tier)}</g>`;
       })
       .join("");
     scene.push(
@@ -702,7 +788,7 @@ export function renderWings(stats: WingStats, opts: RenderOptions = {}): string 
     );
   }
 
-  scene.push(heart(cx, cy + 8, langs, tier, stats));
+  scene.push(heart(cx, cy + 8, langs, tier, stats, glowSigma(starPower)));
 
   if (has("ember")) front.push(embers(cx, cy, span, gap, rnd));
   if (has("pixel")) front.push(pixels(cx, cy, span, langs, rnd));
@@ -758,7 +844,7 @@ export function renderWings(stats: WingStats, opts: RenderOptions = {}): string 
     : "";
   const desc = `${stats.subject}: ${tier.name} wings, quirk “${gen.quirk}” — ${stats.stars} stars, ${activity.count} ${activity.noun}; ${langs.map((l) => l.name).join(", ")}${stats.tech.length ? "; " + stats.tech.map((t) => t.label).join(", ") : ""}`;
 
-  return (
+  return foldOpacity(
     `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 ${W} ${f(height)}" width="${W}" height="${f(height)}" role="img" aria-label="${esc(desc)}">` +
     `<title>${esc(desc)}</title><style>${style}</style><defs>${defs.join("")}</defs>${bg}` +
     `<g class="bob">${back.join("")}${scene.join("")}${front.join("")}</g>${label?.svg ?? ""}` +
@@ -771,6 +857,8 @@ export function renderWings(stats: WingStats, opts: RenderOptions = {}): string 
 
 type Badge = (r: number, tier: Tier) => string;
 
+const BADGE_R = 13;
+
 function iconBadge(name: string, url: string, iconSlug: string | null, fallbackColor: string, caption: string): Badge {
   const icon = getIcon(iconSlug);
   const disc = icon?.hex ?? fallbackColor;
@@ -782,7 +870,7 @@ function iconBadge(name: string, url: string, iconSlug: string | null, fallbackC
       : `<text y="${f(r * 0.36)}" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-weight="700" font-size="${f(r * 0.95)}" fill="${ink}">${esc(monogram(name))}</text>`;
     return (
       `<a href="${esc(url)}" xlink:href="${esc(url)}" target="_blank"><title>${esc(caption)}</title>` +
-      `<circle r="${f(r + 3)}" fill="${shade(tier.metal, 0.55)}" opacity=".55" filter="url(#soft)"/>` +
+      `<circle r="${f(softR(r + 3, 2))}" fill="url(#badgeShade)" opacity=".55"/>` +
       `<circle r="${f(r + 1.5)}" fill="url(#metal)"/>` +
       `<circle r="${f(r)}" fill="${disc}"/>` +
       `<circle r="${f(r)}" fill="none" stroke="#ffffff" stroke-opacity=".35" stroke-width=".8"/>` +
@@ -806,8 +894,11 @@ const techBadge = (t: TechStat): Badge => iconBadge(t.label, t.url, t.icon, "#6e
 
 // ─── Heart: language donut with the top language in the middle ───────
 
-function heart(x: number, y: number, langs: LanguageStat[], tier: Tier, stats: WingStats): string {
-  const r = 24;
+const HEART_R = 24;
+const HEART_GLOW_R = HEART_R + 12;
+
+function heart(x: number, y: number, langs: LanguageStat[], tier: Tier, stats: WingStats, sigma: number): string {
+  const r = HEART_R;
   const C = 2 * Math.PI * r;
   let offset = 0;
   const total = langs.reduce((s, l) => s + l.share, 0) || 1;
@@ -825,7 +916,7 @@ function heart(x: number, y: number, langs: LanguageStat[], tier: Tier, stats: W
     : `<text y="6" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-weight="700" font-size="16" fill="#fff">${esc(monogram(langs[0].name))}</text>`;
   return (
     `<g transform="translate(${f(x)} ${f(y)})"><a href="${esc(stats.url)}" xlink:href="${esc(stats.url)}" target="_blank"><title>${esc(stats.subject)}</title>` +
-    `<circle r="${r + 12}" fill="${langs[0].color}" opacity=".35" filter="url(#glow)"/>` +
+    `<circle r="${f(softR(HEART_GLOW_R, sigma))}" fill="url(#heartGlow)" opacity=".35"/>` +
     `<circle r="${r + 5}" fill="url(#metal)"/><circle r="${r + 3.5}" fill="#0d1117"/>${ring}` +
     `<circle r="${r - 4.5}" fill="url(#core)"/><circle r="${r - 4.5}" fill="none" stroke="${tier.metalLight}" stroke-opacity=".6"/>${core}</a></g>`
   );
@@ -906,6 +997,9 @@ function sigil(cx: number, cy: number, r: number, gen: Genome): string {
 
 // ─── Motes: ambient particles of the genome ──────────────────────────
 
+/** Typical glow radius of a firefly; one gradient, scaled per firefly. */
+const MOTE_GLOW_R = 5.5;
+
 function motes(cx: number, cy: number, span: number, gen: Genome, rnd: () => number): string {
   return Array.from({ length: 16 }, () => {
     const x = cx + (rnd() - 0.5) * span * 2.4;
@@ -916,7 +1010,7 @@ function motes(cx: number, cy: number, span: number, gen: Genome, rnd: () => num
         const r = 1.3 + rnd() * 1.2;
         return (
           `<g class="drift" style="${delay};animation-duration:${f(5 + rnd() * 5)}s">` +
-          `<circle cx="${f(x)}" cy="${f(y)}" r="${f(r * 3)}" fill="${gen.accent}" opacity=".35" filter="url(#soft)"/>` +
+          `<circle cx="${f(x)}" cy="${f(y)}" r="${f((r * 3 * softR(MOTE_GLOW_R, 2)) / MOTE_GLOW_R)}" fill="url(#moteGlow)" opacity=".35"/>` +
           `<circle cx="${f(x)}" cy="${f(y)}" r="${f(r)}" fill="${tint(gen.accent, 0.6)}"/></g>`
         );
       }
@@ -935,7 +1029,7 @@ function motes(cx: number, cy: number, span: number, gen: Genome, rnd: () => num
 function halo(x: number, y: number, tier: Tier, power: number): string {
   const rx = 30 + 14 * power;
   return (
-    `<g class="pulse"><ellipse cx="${f(x)}" cy="${f(y)}" rx="${f(rx)}" ry="${f(rx * 0.22)}" fill="none" stroke="${tier.metal}" stroke-width="7" opacity=".5" filter="url(#glow)"/>` +
+    `<g class="pulse">${glowStroke(ellipseD(x, y, rx, rx * 0.22), tier.metal, 7, glowSigma(power), 0.5)}` +
     `<ellipse cx="${f(x)}" cy="${f(y)}" rx="${f(rx)}" ry="${f(rx * 0.22)}" fill="none" stroke="url(#metal)" stroke-width="3.5"/></g>`
   );
 }
@@ -952,7 +1046,8 @@ function aurora(cx: number, cy: number, span: number, langs: LanguageStat[]): st
       `<g transform="translate(${f(cx)} ${f(cy + 10)}) rotate(${rot})">` +
         `<path d="${d}" fill="none" stroke="${color}" stroke-width="1.2" opacity=".35"/>` +
         `<circle r="3.2" fill="${tint(color, 0.5)}"><animateMotion dur="${7 + i * 3}s" repeatCount="indefinite" path="${d}"/></circle>` +
-        `<circle r="9" fill="${color}" opacity=".4" filter="url(#soft)"><animateMotion dur="${7 + i * 3}s" repeatCount="indefinite" path="${d}"/></circle></g>`,
+        softDisc(`aurora${i}`, color, 9, 2) +
+        `<circle r="${f(softR(9, 2))}" fill="url(#aurora${i})" opacity=".4"><animateMotion dur="${7 + i * 3}s" repeatCount="indefinite" path="${d}"/></circle></g>`,
     );
   });
   return out.join("");
@@ -974,7 +1069,7 @@ function runes(g: Geometry, tier: Tier, rnd: () => number): string {
     d += kinds[Math.floor(rnd() * kinds.length)];
   }
   return (
-    `<g class="pulse"><path d="${d}" stroke="${tier.metalLight}" stroke-width="2.6" fill="none" opacity=".6" filter="url(#soft)"/>` +
+    `<g class="pulse">${glowStroke(d, tier.metalLight, 2.6, 2, 0.6)}` +
     `<path d="${d}" stroke="#ffffff" stroke-width="1" fill="none" stroke-linecap="round"/></g>`
   );
 }
