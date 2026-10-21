@@ -4,6 +4,7 @@ import { activityOf, formatCount, renderWings, tierFor, type RenderOptions } fro
 export * from "./github.js";
 export * from "./wings.js";
 export { TECH, type Trait } from "./tech.js";
+export { genomeFor, type Genome } from "./genome.js";
 
 /** A login → profile wings (skills across all repositories); "owner/repo" or a repo URL → one repository. */
 export async function fetchStats(target: string, opts: ProfileOptions & { token?: string } = {}): Promise<WingStats> {

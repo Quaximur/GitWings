@@ -31,6 +31,7 @@ It can also draw wings for a **single repository**.
 - [Three ways to use it](#-three-ways-to-use-it)
 - [Quick start](#-quick-start)
 - [Profile: skills across all repositories](#-profile-skills-across-all-repositories)
+- [Quirks: wings of your own](#-quirks-wings-of-your-own)
 - [How data becomes wings](#-how-data-becomes-wings)
   - [Star tiers](#star-tiers)
   - [Traits](#traits)
@@ -96,14 +97,47 @@ flowchart LR
 > [!IMPORTANT]
 > Each repository costs about 3 API requests. Without a token only the 15 most recent repositories are analysed; with `GITHUB_TOKEN`, all of them.
 
+## 🧬 Quirks: wings of your own
+
+No two accounts grow the same wings. The login is hashed into a **genome**, a bit like a quirk in *My Hero Academia*: it is yours from birth, and your work only makes it stronger. The same login always gives the same wings, so they stay recognisable from day to day while the data makes them grow.
+
+<p align="center">
+  <img src="examples/quirk-ezra.svg" width="32%" alt="Six-winged seraph with a ghostly trail"/>
+  <img src="examples/quirk-rune.svg" width="32%" alt="Phoenix with thorned bone"/>
+  <img src="examples/quirk-vesper.svg" width="32%" alt="Drake: membrane with crystal coverts"/>
+</p>
+<p align="center">
+  <img src="examples/quirk-mira.svg" width="32%" alt="Specter: spectral ribbons"/>
+  <img src="examples/quirk-corvin.svg" width="32%" alt="Crystal wings with scales and a ghostly trail"/>
+  <img src="examples/quirk-cyrus.svg" width="32%" alt="Basilisk: membrane, scales and ribbons"/>
+</p>
+<p align="center"><sub>The same stats, six different names.</sub></p>
+
+A wing is not picked from a list of types: it is assembled from independent genes, so they combine into tens of thousands of different pairs.
+
+| Gene | Variants |
+|---|---|
+| **Primaries** (outer layer) | feathers · faceted crystal shards · a draconic membrane between finger bones, with claws · swaying spectral ribbons |
+| **Coverts** (inner layers) | feathers · shards · scales · nothing (over a membrane or ribbons) |
+| **Trail** | nothing · ghostly ribbons in a veil of light · long flame-shaped phoenix streamers |
+| **Bone** (leading edge) | forged metal · spectral glow · metal with thorns |
+| **Echo pairs** | 0, 1 or 2 smaller pairs behind the main one; three pairs make a seraph |
+| **Feather style** | soft, plume, sickle or flame (blade and flowing come from the primary language) |
+| **Markings** | peacock eyes, bands, speckles, a glowing veil or none |
+| **Sigil** | the slowly turning arcane circle behind the wings: a star polygon, glyphs, ticks and a frame (rings, hexagon, triangle, square) |
+| **Accent, motes, pose** | accent hue · fireflies, ash, sparks or star dust · how high the wings are raised and how far they sweep, the wingbeat tempo |
+
+The genes also name the pair: *Iron Drake*, *Hollow Ophan*, *Lucent Phoenix of the Last Commit*. Want to see other wings? `--seed <any name>` grows the wings of that name from your data.
+
 ## 🎨 How data becomes wings
 
 | Data | What changes |
 |---|---|
-| **Contributions** (profile) / **commits** (repository) | number of feathers (7 → 19) and layers: primaries → secondaries (≥30) → coverts (≥300) → down scales (≥2000) |
+| **Login** | the [quirk](#-quirks-wings-of-your-own): primaries, coverts, trail, bone, echo pairs, accent, sigil |
+| **Contributions** (profile) / **commits** (repository) | number of feathers (7 → 19) and layers: primaries → secondaries (≥30) → coverts (≥300) → down scales (≥2000); for membranes and glass wings, the number of veins |
 | **Stars** | wingspan, glow, sparkles and the [**tier**](#star-tiers) |
 | **Languages** | feather colours: tip-to-body sectors by share of code, linguist colours; the “heart” in the centre is a donut chart of languages |
-| **Primary language family** | feather shape: soft (default), **blades** (Rust, C/C++, Go, Zig), **flowing** (Haskell, Elixir, Scala, F#…) |
+| **Primary language family** | feather shape: **blades** (Rust, C/C++, Go, Zig), **flowing** (Haskell, Elixir, Scala, F#…); otherwise the quirk picks soft, plume, sickle or flame feathers |
 | **Frameworks and libraries** | visual [traits](#traits) |
 
 ### Star tiers
@@ -186,6 +220,7 @@ node dist/cli.js --stats examples/tiny.json -o tiny.svg --background
 | `--no-label` | wings only, no title, stats or legend |
 | `--no-animate` | static SVG |
 | `--title <text>` | custom title |
+| `--seed <name>` | grow the wings of another name (another quirk) from the same data |
 | `--stats <file>` | render from a stats JSON instead of the API (offline) |
 | `--json <file>` | also save the collected stats as JSON |
 | `--snippet <url>` | print a README snippet that embeds the image from `<url>` |
@@ -253,6 +288,8 @@ claude mcp add gitwings -e GITHUB_TOKEN=ghp_xxx -- node /path/to/GitWings/dist/m
 
 > [!TIP]
 > `<picture>` switches the variant by the GitHub theme, not the OS theme. `--snippet` prints a ready-made snippet with links to your technologies.
+>
+> The workflow refreshes only the pictures: the line of links from `--snippet` is plain text in your README. Print it again when your stack changes, or it will keep listing technologies the wings no longer show.
 
 > [!CAUTION]
 > The built-in `github.token` sees only public repositories. To include private ones, create a token with the `repo` scope, store it in the `WINGS_TOKEN` secret and pass it in:
@@ -320,7 +357,8 @@ Preview every example on dark and light backgrounds: [examples/gallery.html](exa
 src/
 ├─ tech.ts     technology registry: dependencies → trait, icon, link; language colours
 ├─ github.ts   data collection: stars, commits, languages, file tree, manifest parsing
-├─ wings.ts    SVG renderer: geometry, feather layers, traits, badges, animations
+├─ genome.ts   login → quirk: wing genes, name, accent, sigil, markings, pose
+├─ wings.ts    SVG renderer: wing assembly from genes, traits, badges, sigil, animations
 ├─ icons.ts    simple-icons icons
 ├─ cli.ts      CLI
 └─ mcp.ts      MCP server

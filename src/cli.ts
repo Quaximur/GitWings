@@ -23,6 +23,7 @@ Options:
       --no-label         Wings only, no title/stats/legend
       --no-animate       Static SVG
       --title <text>     Custom title
+      --seed <name>      Grow the wings of another name (each name has its own quirk)
       --stats <file>     Render from a stats JSON instead of the API (offline)
       --json <file>      Also save the collected stats as JSON
       --dark-output <f>  Also write a dark-theme variant (use with --theme light)
@@ -42,6 +43,7 @@ async function main() {
       "no-label": { type: "boolean", default: false },
       "no-animate": { type: "boolean", default: false },
       title: { type: "string" },
+      seed: { type: "string" },
       stats: { type: "string" },
       json: { type: "string" },
       snippet: { type: "string" },
@@ -77,6 +79,7 @@ async function main() {
       label: !values["no-label"],
       animate: !values["no-animate"],
       title: values.title,
+      seed: values.seed,
     });
   const svg = render(values.theme as "auto" | "dark" | "light");
   if (values["dark-output"]) await save(values["dark-output"], render("dark"));

@@ -6,7 +6,7 @@ import { dirname, resolve } from "node:path";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
-import { fetchStats, readmeSnippet, renderWings, tierFor, toLanguageStats, toTechStats, TECH, type WingStats } from "./index.js";
+import { fetchStats, genomeFor, readmeSnippet, renderWings, tierFor, toLanguageStats, toTechStats, TECH, type WingStats } from "./index.js";
 
 const server = new McpServer({ name: "gitwings", version: "0.1.0" });
 
@@ -15,17 +15,19 @@ const renderShape = {
   background: z.boolean().optional().describe("Draw a card background (default: transparent)"),
   label: z.boolean().optional().describe("Show title, stats and legend under the wings (default: true)"),
   animate: z.boolean().optional().describe("Animated flapping, sparkles and particles (default: true)"),
+  seed: z.string().optional().describe("Grow the wings from this name instead of the subject: every name has its own quirk (wing genes, colors, sigil)"),
   output_path: z.string().optional().describe("If set, the SVG is written to this file and only a summary is returned"),
   image_url: z.string().optional().describe("Public URL the SVG will be served from; returns a README snippet for it"),
 };
 
-type RenderArgs = { theme?: "auto" | "dark" | "light"; background?: boolean; label?: boolean; animate?: boolean; output_path?: string; image_url?: string };
+type RenderArgs = { theme?: "auto" | "dark" | "light"; background?: boolean; label?: boolean; animate?: boolean; seed?: string; output_path?: string; image_url?: string };
 
 async function respond(stats: WingStats, args: RenderArgs) {
   const svg = renderWings(stats, args);
   const tier = tierFor(stats.stars);
+  const gen = genomeFor(args.seed ?? stats.subject);
   const summary = [
-    `${stats.subject}: ${tier.name} wings`,
+    `${stats.subject}: ${tier.name} wings — quirk “${gen.quirk}” (${gen.primaries} primaries, ${gen.coverts} coverts, ${gen.trail} trail, ${gen.bone} bone, ${gen.echoes} echo pairs)`,
     `stars ${stats.stars}, commits ${stats.commits}${stats.contributions !== undefined ? `, contributions ${stats.contributions}` : ""}, forks ${stats.forks}`,
     `languages: ${stats.languages.map((l) => `${l.name} ${(l.share * 100).toFixed(1)}%`).join(", ") || "—"}`,
     `tech: ${stats.tech.map((t) => `${t.label} (${t.trait}${t.repos ? `, ${t.repos} repos` : ""})`).join(", ") || "—"}`,
