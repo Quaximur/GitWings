@@ -42,6 +42,6 @@ export function readmeSnippet(stats: WingStats, imageUrl: string, darkImageUrl?:
     ``,
     `<p align="center"><sub>${tier.name} wings · ★ ${formatCount(stats.stars)} · ${formatCount(activity.count)} ${activity.noun} · ${links.join(" · ")}</sub></p>`,
     ``,
-    `<p align="center"><sub>🪽 grown with <a href="${GITWINGS_URL}">GitWings</a></sub></p>`,
+    `<p align="center"><sub>🪽 grown with <a href="${GITWINGS_URL}">Quaximur/GitWings</a></sub></p>`,
   ].join("\n");
 }

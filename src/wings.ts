@@ -26,7 +26,7 @@ export interface RenderOptions {
   title?: string;
   /** Grow the wings from this name instead of the subject (another quirk). */
   seed?: string;
-  /** A small "grown with GitWings" link under the label. Default true. */
+  /** A small "grown with Quaximur/GitWings" link under the label. Default true. */
   credit?: boolean;
 }
 
@@ -1132,19 +1132,19 @@ function renderLabel(
   };
 }
 
-/** "grown with GitWings": a feather, the link, and two hairlines fading out to the sides. */
+/** "grown with Quaximur/GitWings": a feather, the link, and two hairlines fading out to the sides. */
 function creditLine(x: number, y: number): string {
   // Rects, not lines: a bounding-box gradient does not paint a shape with zero height.
   const line = (side: number) =>
-    `<rect x="${f(side > 0 ? x + 86 : x - 160)}" y="${f(y - 4.4)}" width="74" height=".8" fill="url(#credit-fade-${side > 0 ? "r" : "l"})"/>`;
+    `<rect x="${f(side > 0 ? x + 128 : x - 202)}" y="${f(y - 4.4)}" width="74" height=".8" fill="url(#credit-fade-${side > 0 ? "r" : "l"})"/>`;
   const fade = (id: string, from: number) =>
     `<linearGradient id="${id}" x1="${from}" x2="${1 - from}"><stop offset="0" stop-color="var(--quirk)" stop-opacity=".8"/><stop offset="1" stop-color="var(--quirk)" stop-opacity="0"/></linearGradient>`;
   return (
     `<defs>${fade("credit-fade-r", 0)}${fade("credit-fade-l", 1)}</defs>` +
-    `<a href="${GITWINGS_URL}" xlink:href="${GITWINGS_URL}" target="_blank" opacity=".85"><title>Made with GitWings</title>` +
+    `<a href="${GITWINGS_URL}" xlink:href="${GITWINGS_URL}" target="_blank" opacity=".85"><title>Made with Quaximur/GitWings</title>` +
     line(-1) +
     line(1) +
-    `<g transform="translate(${f(x - 74)} ${f(y - 4)}) rotate(-35)"><path d="M-7 0C-3 -4 3 -5 8 -3C4 0 -2 3 -7 0Z" fill="var(--quirk)"/><path d="M-9 1L7 -3" stroke="var(--quirk)" stroke-width=".7"/></g>` +
-    `<text class="t4" x="${f(x + 6)}" y="${f(y)}" text-anchor="middle">grown with <tspan font-weight="700" fill="var(--fg)" text-decoration="underline">GitWings</tspan></text></a>`
+    `<g transform="translate(${f(x - 116)} ${f(y - 4)}) rotate(-35)"><path d="M-7 0C-3 -4 3 -5 8 -3C4 0 -2 3 -7 0Z" fill="var(--quirk)"/><path d="M-9 1L7 -3" stroke="var(--quirk)" stroke-width=".7"/></g>` +
+    `<text class="t4" x="${f(x + 6)}" y="${f(y)}" text-anchor="middle">grown with <tspan font-weight="700" fill="var(--fg)" text-decoration="underline">Quaximur/GitWings</tspan></text></a>`
   );
 }

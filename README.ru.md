@@ -219,7 +219,7 @@ node dist/cli.js --stats examples/tiny.json -o tiny.svg --background
 | `--background` | рисовать фон-карточку |
 | `--no-label` | только крылья, без заголовка, статистики и легенды |
 | `--no-animate` | статичный SVG |
-| `--no-credit` | без ссылки «grown with GitWings» под подписью |
+| `--no-credit` | без ссылки «grown with Quaximur/GitWings» под подписью |
 | `--title <text>` | свой заголовок |
 | `--seed <name>` | вырастить из тех же данных крылья другого имени (другую причуду) |
 | `--stats <file>` | рендер из JSON со статистикой вместо API (офлайн) |

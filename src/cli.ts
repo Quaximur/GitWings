@@ -22,7 +22,7 @@ Options:
       --background       Draw a card background
       --no-label         Wings only, no title/stats/legend
       --no-animate       Static SVG
-      --no-credit        No "grown with GitWings" link under the label
+      --no-credit        No "grown with Quaximur/GitWings" link under the label
       --title <text>     Custom title
       --seed <name>      Grow the wings of another name (each name has its own quirk)
       --stats <file>     Render from a stats JSON instead of the API (offline)
