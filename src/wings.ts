@@ -1145,6 +1145,6 @@ function creditLine(x: number, y: number): string {
     line(-1) +
     line(1) +
     `<g transform="translate(${f(x - 74)} ${f(y - 4)}) rotate(-35)"><path d="M-7 0C-3 -4 3 -5 8 -3C4 0 -2 3 -7 0Z" fill="var(--quirk)"/><path d="M-9 1L7 -3" stroke="var(--quirk)" stroke-width=".7"/></g>` +
-    `<text class="t4" x="${f(x + 6)}" y="${f(y)}" text-anchor="middle">grown with <tspan font-weight="700" fill="var(--fg)">GitWings</tspan></text></a>`
+    `<text class="t4" x="${f(x + 6)}" y="${f(y)}" text-anchor="middle">grown with <tspan font-weight="700" fill="var(--fg)" text-decoration="underline">GitWings</tspan></text></a>`
   );
 }
