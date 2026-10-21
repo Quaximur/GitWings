@@ -26,6 +26,8 @@ export interface RenderOptions {
   title?: string;
   /** Grow the wings from this name instead of the subject (another quirk). */
   seed?: string;
+  /** A small "grown with GitWings" link under the label. Default true. */
+  credit?: boolean;
 }
 
 export interface Tier {
@@ -537,6 +539,8 @@ function streamers(c: Ctx, hull: Pt[]): string {
 
 // ─── Renderer ─────────────────────────────────────────────────────────
 
+export const GITWINGS_URL = "https://github.com/Quaximur/GitWings";
+
 const MIN_W = 560;
 const LEGEND_ROWS = 4;
 const DEFAULT_LANG: LanguageStat = { name: "Code", share: 1, color: "#8b949e", icon: null, url: "https://github.com" };
@@ -707,13 +711,15 @@ export function renderWings(stats: WingStats, opts: RenderOptions = {}): string 
   // ── Label ──
   const wingBottom = cy + Math.max(maxY, sigilR * 1.22 + 8);
   const labelY = wingBottom + 34;
-  const label = showLabel ? renderLabel(stats, tier, gen, langs, opts.title, labelY, W) : null;
-  const height = label ? labelY + 92 + (label.rows - 1) * 20 : wingBottom + 30;
+  const credit = opts.credit ?? true;
+  const label = showLabel ? renderLabel(stats, tier, gen, langs, opts.title, labelY, W, credit) : null;
+  const height = label ? labelY + 92 + (label.rows - 1) * 20 + (credit ? 26 : 0) : wingBottom + 30;
 
   const style = `
     .t1{font:700 22px 'Segoe UI',Ubuntu,'Helvetica Neue',sans-serif;fill:var(--fg)}
     .t2{font:500 13px 'Segoe UI',Ubuntu,'Helvetica Neue',sans-serif;fill:var(--muted)}
     .t3{font:500 12px 'Segoe UI',Ubuntu,'Helvetica Neue',sans-serif;fill:var(--muted)}
+    .t4{font:500 11px 'Segoe UI',Ubuntu,'Helvetica Neue',sans-serif;letter-spacing:.14em;fill:var(--muted)}
     .tq{font:italic 500 14px Georgia,'Times New Roman',serif;letter-spacing:.06em;fill:var(--quirk)}
     svg{--fg:${theme === "dark" ? "#e6edf3" : "#1f2328"};--muted:${theme === "dark" ? "#9198a1" : "#59636e"};--card:${theme === "dark" ? "#0d1117" : "#ffffff"};--quirk:${theme === "dark" ? gen.accent : gen.accentDeep}}
     ${theme === "auto" ? `@media (prefers-color-scheme:dark){svg{--fg:#e6edf3;--muted:#9198a1;--card:#0d1117;--quirk:${gen.accent}}}` : ""}
@@ -1068,6 +1074,7 @@ function renderLabel(
   title: string | undefined,
   y: number,
   W: number,
+  credit: boolean,
 ): { svg: string; rows: number } {
   const name = title ?? stats.subject;
   const activity = activityOf(stats);
@@ -1119,7 +1126,25 @@ function renderLabel(
       `<g text-anchor="middle"><a href="${esc(stats.url)}" xlink:href="${esc(stats.url)}" target="_blank"><text class="t1" x="${W / 2}" y="${f(y)}">${esc(name)}</text></a>` +
       `<text class="tq" x="${W / 2}" y="${f(y + 22)}">✦ ${esc(gen.quirk)} ✦</text>` +
       `<text class="t2" x="${W / 2}" y="${f(y + 42)}">${esc(parts.join("  ·  "))}</text></g>` +
-      legend,
+      legend +
+      (credit ? creditLine(W / 2, y + 66 + rows.length * 20 + 12) : ""),
     rows: rows.length,
   };
+}
+
+/** "grown with GitWings": a feather, the link, and two hairlines fading out to the sides. */
+function creditLine(x: number, y: number): string {
+  // Rects, not lines: a bounding-box gradient does not paint a shape with zero height.
+  const line = (side: number) =>
+    `<rect x="${f(side > 0 ? x + 86 : x - 160)}" y="${f(y - 4.4)}" width="74" height=".8" fill="url(#credit-fade-${side > 0 ? "r" : "l"})"/>`;
+  const fade = (id: string, from: number) =>
+    `<linearGradient id="${id}" x1="${from}" x2="${1 - from}"><stop offset="0" stop-color="var(--quirk)" stop-opacity=".8"/><stop offset="1" stop-color="var(--quirk)" stop-opacity="0"/></linearGradient>`;
+  return (
+    `<defs>${fade("credit-fade-r", 0)}${fade("credit-fade-l", 1)}</defs>` +
+    `<a href="${GITWINGS_URL}" xlink:href="${GITWINGS_URL}" target="_blank" opacity=".85"><title>Made with GitWings</title>` +
+    line(-1) +
+    line(1) +
+    `<g transform="translate(${f(x - 74)} ${f(y - 4)}) rotate(-35)"><path d="M-7 0C-3 -4 3 -5 8 -3C4 0 -2 3 -7 0Z" fill="var(--quirk)"/><path d="M-9 1L7 -3" stroke="var(--quirk)" stroke-width=".7"/></g>` +
+    `<text class="t4" x="${f(x + 6)}" y="${f(y)}" text-anchor="middle">grown with <tspan font-weight="700" fill="var(--fg)">GitWings</tspan></text></a>`
+  );
 }

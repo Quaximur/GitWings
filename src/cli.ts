@@ -22,6 +22,7 @@ Options:
       --background       Draw a card background
       --no-label         Wings only, no title/stats/legend
       --no-animate       Static SVG
+      --no-credit        No "grown with GitWings" link under the label
       --title <text>     Custom title
       --seed <name>      Grow the wings of another name (each name has its own quirk)
       --stats <file>     Render from a stats JSON instead of the API (offline)
@@ -42,6 +43,7 @@ async function main() {
       background: { type: "boolean", default: false },
       "no-label": { type: "boolean", default: false },
       "no-animate": { type: "boolean", default: false },
+      "no-credit": { type: "boolean", default: false },
       title: { type: "string" },
       seed: { type: "string" },
       stats: { type: "string" },
@@ -80,6 +82,7 @@ async function main() {
       animate: !values["no-animate"],
       title: values.title,
       seed: values.seed,
+      credit: !values["no-credit"],
     });
   const svg = render(values.theme as "auto" | "dark" | "light");
   if (values["dark-output"]) await save(values["dark-output"], render("dark"));

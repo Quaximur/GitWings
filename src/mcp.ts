@@ -15,12 +15,13 @@ const renderShape = {
   background: z.boolean().optional().describe("Draw a card background (default: transparent)"),
   label: z.boolean().optional().describe("Show title, stats and legend under the wings (default: true)"),
   animate: z.boolean().optional().describe("Animated flapping, sparkles and particles (default: true)"),
+  credit: z.boolean().optional().describe('A small "grown with GitWings" link under the label (default: true)'),
   seed: z.string().optional().describe("Grow the wings from this name instead of the subject: every name has its own quirk (wing genes, colors, sigil)"),
   output_path: z.string().optional().describe("If set, the SVG is written to this file and only a summary is returned"),
   image_url: z.string().optional().describe("Public URL the SVG will be served from; returns a README snippet for it"),
 };
 
-type RenderArgs = { theme?: "auto" | "dark" | "light"; background?: boolean; label?: boolean; animate?: boolean; seed?: string; output_path?: string; image_url?: string };
+type RenderArgs = { theme?: "auto" | "dark" | "light"; background?: boolean; label?: boolean; animate?: boolean; credit?: boolean; seed?: string; output_path?: string; image_url?: string };
 
 async function respond(stats: WingStats, args: RenderArgs) {
   const svg = renderWings(stats, args);

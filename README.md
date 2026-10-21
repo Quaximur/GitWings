@@ -219,6 +219,7 @@ node dist/cli.js --stats examples/tiny.json -o tiny.svg --background
 | `--background` | draw a card background |
 | `--no-label` | wings only, no title, stats or legend |
 | `--no-animate` | static SVG |
+| `--no-credit` | no “grown with GitWings” link under the label |
 | `--title <text>` | custom title |
 | `--seed <name>` | grow the wings of another name (another quirk) from the same data |
 | `--stats <file>` | render from a stats JSON instead of the API (offline) |
