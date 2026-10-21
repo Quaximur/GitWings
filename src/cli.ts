@@ -2,7 +2,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import { parseArgs } from "node:util";
-import { activityOf, fetchStats, readmeSnippet, renderWings, type WingStats } from "./index.js";
+import { activityOf, fetchStats, readmeSnippet, renderWings, updateReadme, type WingStats } from "./index.js";
 
 const HELP = `gitwings — gorgeous SVG wings that show a developer's skills
 
@@ -30,6 +30,8 @@ Options:
       --dark-output <f>  Also write a dark-theme variant (use with --theme light)
       --snippet <url>    Print a README snippet that embeds the image from <url>
       --snippet-dark <u> Dark variant URL for the snippet (<picture>, follows GitHub theme)
+      --readme <file>    Put the snippet between <!-- gitwings:start --> and <!-- gitwings:end -->
+                         in this file instead of printing it (needs --snippet)
   -h, --help
 
 Env: GITHUB_TOKEN or GH_TOKEN raises the API rate limit (60 → 5000 req/h).`;
@@ -50,6 +52,7 @@ async function main() {
       json: { type: "string" },
       snippet: { type: "string" },
       "snippet-dark": { type: "string" },
+      readme: { type: "string" },
       "dark-output": { type: "string" },
       "include-forks": { type: "boolean", default: false },
       "include-private": { type: "boolean", default: false },
@@ -64,6 +67,7 @@ async function main() {
     process.exit(values.help ? 0 : 1);
   }
   if (!["auto", "dark", "light"].includes(values.theme!)) throw new Error(`--theme must be auto, dark or light`);
+  if (values.readme && !values.snippet) throw new Error(`--readme needs --snippet <image url>`);
 
   const stats: WingStats = values.stats
     ? JSON.parse(await readFile(values.stats, "utf8"))
@@ -96,7 +100,15 @@ async function main() {
   } else if (!values.snippet) {
     process.stdout.write(svg);
   }
-  if (values.snippet) console.log(readmeSnippet(stats, values.snippet, values["snippet-dark"]));
+  if (values.snippet) {
+    const snippet = readmeSnippet(stats, values.snippet, values["snippet-dark"]);
+    if (values.readme) {
+      await writeFile(values.readme, updateReadme(await readFile(values.readme, "utf8"), snippet), "utf8");
+      if (!values.quiet) console.error(`🪽  links refreshed in ${values.readme}`);
+    } else {
+      console.log(snippet);
+    }
+  }
 }
 
 async function save(path: string, content: string) {

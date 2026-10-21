@@ -45,3 +45,14 @@ export function readmeSnippet(stats: WingStats, imageUrl: string, darkImageUrl?:
     `<p align="center"><sub>🪽 grown with <a href="${GITWINGS_URL}">Quaximur/GitWings</a></sub></p>`,
   ].join("\n");
 }
+
+export const README_START = "<!-- gitwings:start -->";
+export const README_END = "<!-- gitwings:end -->";
+
+/** Replaces everything between the gitwings markers in a README, so a workflow can keep the links in step with the wings. */
+export function updateReadme(readme: string, snippet: string): string {
+  const start = readme.indexOf(README_START);
+  const end = readme.indexOf(README_END, start);
+  if (start < 0 || end < 0) throw new Error(`the README has no ${README_START} … ${README_END} markers`);
+  return readme.slice(0, start + README_START.length) + "\n" + snippet + "\n" + readme.slice(end);
+}

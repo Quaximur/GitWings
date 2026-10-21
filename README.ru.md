@@ -187,7 +187,7 @@ flowchart LR
 На крыльях размещены эмблемы-медальоны с иконками ([simple-icons](https://simpleicons.org), CC0): на правом крыле — языки, на левом — фреймворки. У каждой эмблемы есть всплывающая подсказка и ссылка на сайт технологии; под крыльями — легенда, тоже со ссылками.
 
 > [!WARNING]
-> В README GitHub показывает SVG через `<img>`, поэтому ссылки *внутри* картинки там не кликаются. Работают они, когда SVG открыт напрямую (по клику на картинку). Поэтому флаг `--snippet` дополнительно генерирует под картинкой HTML-строку с настоящими ссылками на каждую технологию.
+> В README GitHub показывает SVG через `<img>`, поэтому ссылки *внутри* картинки там не кликаются. Работают они, когда SVG открыт напрямую (по клику на картинку). Поэтому флаг `--snippet` дополнительно генерирует под картинкой HTML-строку с настоящими ссылками на каждую технологию, а workflow умеет [поддерживать её в README](#-крылья-на-главной-странице-профиля) в актуальном виде.
 
 ## 💻 CLI
 
@@ -226,6 +226,7 @@ node dist/cli.js --stats examples/tiny.json -o tiny.svg --background
 | `--json <file>` | дополнительно сохранить собранную статистику в JSON |
 | `--snippet <url>` | вывести сниппет для README с картинкой по `<url>` |
 | `--snippet-dark <url>` | URL тёмного варианта для сниппета (`<picture>`, следует теме GitHub) |
+| `--readme <file>` | вместо вывода вставить сниппет в этот файл между `<!-- gitwings:start -->` и `<!-- gitwings:end -->` |
 | `--include-forks` | анализировать и форки |
 | `--include-private` | анализировать и приватные репозитории |
 | `--max-repos <n>` | не больше `n` последних обновлённых репозиториев |
@@ -275,22 +276,28 @@ claude mcp add gitwings -e GITHUB_TOKEN=ghp_xxx -- node /path/to/GitWings/dist/m
 
 1. Создайте репозиторий `YOUR_LOGIN/YOUR_LOGIN`: его README GitHub показывает на странице профиля.
 2. Скопируйте [examples/profile-workflow.yml](examples/profile-workflow.yml) в `.github/workflows/wings.yml` и замените `YOUR_NAME/GitWings` на свой форк этого репозитория.
-3. Запустите workflow вручную: <kbd>Actions</kbd> → <kbd>Wings</kbd> → <kbd>Run workflow</kbd>. SVG появятся в ветке `output`.
-4. Добавьте в README:
+3. Поставьте в README два маркера там, где должны быть крылья:
 
 ```html
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/YOUR_LOGIN/YOUR_LOGIN/output/wings-dark.svg"/>
-    <img src="https://raw.githubusercontent.com/YOUR_LOGIN/YOUR_LOGIN/output/wings.svg" alt="My GitWings" width="100%"/>
-  </picture>
-</p>
+<!-- gitwings:start -->
+<!-- gitwings:end -->
 ```
 
+4. Запустите workflow вручную: <kbd>Actions</kbd> → <kbd>Wings</kbd> → <kbd>Run workflow</kbd>. SVG появятся в ветке `output`, а место между маркерами workflow заполнит картинкой и строкой настоящих, кликабельных ссылок на ваши языки и фреймворки. Каждый запуск перезаписывает этот блок, так что ссылки всегда совпадают с крыльями.
+
 > [!TIP]
-> `<picture>` переключает вариант по теме GitHub, а не по теме ОС. Готовый сниппет со ссылками на технологии выдаёт `--snippet`.
+> Всё, что вне маркеров, остаётся нетронутым. Картинка вставляется как `<picture>`, который переключает вариант по теме GitHub, а не по теме ОС.
 >
-> Workflow обновляет только картинки, а строка ссылок из `--snippet` — обычный текст в вашем README. Когда стек меняется, сгенерируйте её заново, иначе в ней останутся технологии, которых на крыльях уже нет.
+> Не хотите, чтобы workflow коммитил в README? Уберите `readme:` и шаг с коммитом и вставьте только картинки:
+>
+> ```html
+> <p align="center">
+>   <picture>
+>     <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/YOUR_LOGIN/YOUR_LOGIN/output/wings-dark.svg"/>
+>     <img src="https://raw.githubusercontent.com/YOUR_LOGIN/YOUR_LOGIN/output/wings.svg" alt="My GitWings" width="100%"/>
+>   </picture>
+> </p>
+> ```
 
 > [!CAUTION]
 > Встроенный `github.token` видит только публичные репозитории. Чтобы учесть приватные, создайте токен со scope `repo`, положите его в секрет `WINGS_TOKEN` и передайте:
@@ -312,6 +319,9 @@ claude mcp add gitwings -e GITHUB_TOKEN=ghp_xxx -- node /path/to/GitWings/dist/m
 | `target` | `${{ github.repository_owner }}` | `owner/repo` или логин для крыльев профиля |
 | `output` | `dist/wings.svg` | путь к SVG светлой темы |
 | `dark_output` | `dist/wings-dark.svg` | путь к SVG тёмной темы (пусто — не создавать) |
+| `readme` | | README, в блок `<!-- gitwings:start -->` … `<!-- gitwings:end -->` которого вставляются крылья и ссылки (пусто — не трогать) |
+| `image_url` | ветка `output` репозитория | публичный URL светлого SVG для этого блока |
+| `dark_image_url` | ветка `output` репозитория | публичный URL тёмного SVG для этого блока |
 | `options` | | дополнительные флаги CLI, например `--background --no-label` |
 | `token` | `${{ github.token }}` | токен для GitHub API |
 

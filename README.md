@@ -187,7 +187,7 @@ The registry lives in [src/tech.ts](src/tech.ts); adding a technology takes one 
 The wings carry medallion badges with icons ([simple-icons](https://simpleicons.org), CC0): languages on the right wing, frameworks on the left. Every badge has a tooltip and a link to the technology's site, and the legend under the wings links out too.
 
 > [!WARNING]
-> GitHub renders README SVGs through `<img>`, so links *inside* the picture aren't clickable there. They work when the SVG is opened directly (click the image). That's why `--snippet` also prints an HTML line with real links to each technology to put under the picture.
+> GitHub renders README SVGs through `<img>`, so links *inside* the picture aren't clickable there. They work when the SVG is opened directly (click the image). That's why `--snippet` also prints an HTML line with real links to each technology to put under the picture, and the workflow can [keep it in your README](#-wings-on-your-profile-page) up to date.
 
 ## 💻 CLI
 
@@ -226,6 +226,7 @@ node dist/cli.js --stats examples/tiny.json -o tiny.svg --background
 | `--json <file>` | also save the collected stats as JSON |
 | `--snippet <url>` | print a README snippet that embeds the image from `<url>` |
 | `--snippet-dark <url>` | dark variant URL for the snippet (`<picture>`, follows the GitHub theme) |
+| `--readme <file>` | put the snippet between `<!-- gitwings:start -->` and `<!-- gitwings:end -->` in this file instead of printing it |
 | `--include-forks` | also analyse forks |
 | `--include-private` | also analyse private repositories |
 | `--max-repos <n>` | analyse at most `n` most recently pushed repositories |
@@ -275,22 +276,28 @@ claude mcp add gitwings -e GITHUB_TOKEN=ghp_xxx -- node /path/to/GitWings/dist/m
 
 1. Create the repository `YOUR_LOGIN/YOUR_LOGIN`: GitHub shows its README on your profile page.
 2. Copy [examples/profile-workflow.yml](examples/profile-workflow.yml) to `.github/workflows/wings.yml` and replace `YOUR_NAME/GitWings` with your fork of this repository.
-3. Run the workflow by hand: <kbd>Actions</kbd> → <kbd>Wings</kbd> → <kbd>Run workflow</kbd>. The SVGs land in the `output` branch.
-4. Add this to your README:
+3. Put two markers where the wings should go in your README:
 
 ```html
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/YOUR_LOGIN/YOUR_LOGIN/output/wings-dark.svg"/>
-    <img src="https://raw.githubusercontent.com/YOUR_LOGIN/YOUR_LOGIN/output/wings.svg" alt="My GitWings" width="100%"/>
-  </picture>
-</p>
+<!-- gitwings:start -->
+<!-- gitwings:end -->
 ```
 
+4. Run the workflow by hand: <kbd>Actions</kbd> → <kbd>Wings</kbd> → <kbd>Run workflow</kbd>. The SVGs land in the `output` branch, and the workflow fills the space between the markers with the picture plus a line of real, clickable links to your languages and frameworks. Every run rewrites that block, so the links always match the wings.
+
 > [!TIP]
-> `<picture>` switches the variant by the GitHub theme, not the OS theme. `--snippet` prints a ready-made snippet with links to your technologies.
+> Anything outside the markers is left alone. The picture is a `<picture>` that switches the variant by the GitHub theme, not the OS theme.
 >
-> The workflow refreshes only the pictures: the line of links from `--snippet` is plain text in your README. Print it again when your stack changes, or it will keep listing technologies the wings no longer show.
+> Don't want the workflow committing to your README? Drop `readme:` and the commit step, and embed only the images:
+>
+> ```html
+> <p align="center">
+>   <picture>
+>     <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/YOUR_LOGIN/YOUR_LOGIN/output/wings-dark.svg"/>
+>     <img src="https://raw.githubusercontent.com/YOUR_LOGIN/YOUR_LOGIN/output/wings.svg" alt="My GitWings" width="100%"/>
+>   </picture>
+> </p>
+> ```
 
 > [!CAUTION]
 > The built-in `github.token` sees only public repositories. To include private ones, create a token with the `repo` scope, store it in the `WINGS_TOKEN` secret and pass it in:
@@ -312,6 +319,9 @@ claude mcp add gitwings -e GITHUB_TOKEN=ghp_xxx -- node /path/to/GitWings/dist/m
 | `target` | `${{ github.repository_owner }}` | `owner/repo`, or a username for profile wings |
 | `output` | `dist/wings.svg` | path of the light-theme SVG |
 | `dark_output` | `dist/wings-dark.svg` | path of the dark-theme SVG (empty to skip) |
+| `readme` | | README whose `<!-- gitwings:start -->` … `<!-- gitwings:end -->` block gets the wings and links (empty to skip) |
+| `image_url` | `output` branch of the repository | public URL of the light SVG used in that block |
+| `dark_image_url` | `output` branch of the repository | public URL of the dark SVG used in that block |
 | `options` | | extra CLI flags, e.g. `--background --no-label` |
 | `token` | `${{ github.token }}` | token for the GitHub API |
 

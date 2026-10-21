@@ -14,6 +14,15 @@ inputs:
   dark_output:
     description: Path of the dark-theme SVG (empty to skip)
     default: dist/wings-dark.svg
+  readme:
+    description: "README to refresh: the snippet with the wings and real links goes between <!-- gitwings:start --> and <!-- gitwings:end --> (empty to skip)"
+    default: ""
+  image_url:
+    description: Public URL of the light SVG for the README snippet (default: the `output` branch of this repository)
+    default: ""
+  dark_image_url:
+    description: Public URL of the dark SVG for the README snippet (default: the `output` branch of this repository)
+    default: ""
   options:
     description: "Extra CLI flags, e.g. --background --no-label --title 'My wings'"
     default: ""
@@ -40,7 +49,16 @@ runs:
         TARGET: ${{ inputs.target }}
         OUTPUT: ${{ inputs.output }}
         DARK_OUTPUT: ${{ inputs.dark_output }}
+        README: ${{ inputs.readme }}
+        IMAGE_URL: ${{ inputs.image_url }}
+        DARK_IMAGE_URL: ${{ inputs.dark_image_url }}
       run: |
         args=("$TARGET" -o "$OUTPUT" --theme light)
         [ -n "$DARK_OUTPUT" ] && args+=(--dark-output "$DARK_OUTPUT")
+        if [ -n "$README" ]; then
+          # The example workflow publishes the output folder to the root of the `output` branch.
+          base="https://raw.githubusercontent.com/$GITHUB_REPOSITORY/output"
+          args+=(--readme "$README" --snippet "${IMAGE_URL:-$base/$(basename "$OUTPUT")}")
+          [ -n "$DARK_OUTPUT" ] && args+=(--snippet-dark "${DARK_IMAGE_URL:-$base/$(basename "$DARK_OUTPUT")}")
+        fi
         node "${{ github.action_path }}/dist/cli.js" "${args[@]}" ${{ inputs.options }}
