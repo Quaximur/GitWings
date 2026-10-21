@@ -18,10 +18,10 @@ inputs:
     description: "README to refresh: the snippet with the wings and real links goes between <!-- gitwings:start --> and <!-- gitwings:end --> (empty to skip)"
     default: ""
   image_url:
-    description: Public URL of the light SVG for the README snippet (default: the `output` branch of this repository)
+    description: "Public URL of the light SVG for the README snippet (default: the `output` branch of this repository)"
     default: ""
   dark_image_url:
-    description: Public URL of the dark SVG for the README snippet (default: the `output` branch of this repository)
+    description: "Public URL of the dark SVG for the README snippet (default: the `output` branch of this repository)"
     default: ""
   options:
     description: "Extra CLI flags, e.g. --background --no-label --title 'My wings'"
